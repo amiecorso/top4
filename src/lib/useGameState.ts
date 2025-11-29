@@ -52,7 +52,7 @@ export function useGameState(roomId: string | null, playerId: string | null) {
     return () => clearInterval(interval)
   }, [roomId])
 
-  const createGame = async (hostName: string, maxRounds: number = 5, selectedCategories: string[] = ['base'], newPromptPercentage: number = 0) => {
+  const createGame = async (hostName: string, maxRounds: number = 5, selectedCategories: string[] = ['kidFriendly'], newPromptPercentage: number = 0) => {
     setLoading(true)
     try {
       const response = await fetch('/api/create-game', {

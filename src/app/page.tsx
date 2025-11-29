@@ -10,7 +10,7 @@ export default function Home() {
   const [playerName, setPlayerName] = useState('')
   const [gameCode, setGameCode] = useState('')
   const [maxRounds, setMaxRounds] = useState(5)
-  const [selectedCategories, setSelectedCategories] = useState<PromptCategoryKey[]>(['base'])
+  const [selectedCategories, setSelectedCategories] = useState<PromptCategoryKey[]>(['kidFriendly'])
   const [newPromptPercentage, setNewPromptPercentage] = useState(50)
   const [error, setError] = useState('')
   const router = useRouter()

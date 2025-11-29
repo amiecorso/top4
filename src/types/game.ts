@@ -39,83 +39,115 @@ export interface RankingSubmission {
 }
 
 export const PROMPT_CATEGORIES = {
-  base: {
-    name: "Base Account",
-    prompts: [
-      "morning coffee",
-      "puppy licking your face",
-      "getting a bad grade",
-      "naps",
-      "pizza night",
-      "rainy days",
-      "surprise parties",
-      "long car rides",
-      "spicy food",
-      "cold showers",
-      "group projects",
-      "karaoke nights",
-      "cleaning the house",
-      "movie marathons",
-      "early morning workouts"
-    ]
-  },
   kidFriendly: {
     name: "Kid-Friendly",
     prompts: [
-      "ice cream for breakfast",
-      "finding a lost toy",
-      "riding a bike for the first time",
-      "staying up past bedtime",
-      "snow days from school",
-      "birthday parties",
-      "going to the zoo",
-      "building sandcastles",
-      "losing a tooth",
-      "getting a new pet",
-      "camping in the backyard",
-      "learning to swim",
-      "picking strawberries",
-      "playing hide and seek"
+      "building the tallest pillow fort",
+      "first day at a new school",
+      "winning a tiny prize at the fair",
+      "secret handshake with your best friend",
+      "finding a rainbow after the storm",
+      "the last slice of birthday cake",
+      "teaching a pet a new trick",
+      "splashing in puddles with boots",
+      "trading snacks at lunch",
+      "reading under a blanket with a flashlight",
+      "riding the biggest slide at the park",
+      "snowman that keeps falling over",
+      "catching fireflies in a jar",
+      "bikes with streamers on the handles",
+      "drawing with sidewalk chalk",
+      "hide-and-seek where nobody can find you"
     ]
   },
   workFriendly: {
     name: "Work-Friendly",
     prompts: [
-      "Monday morning meetings",
-      "finding the perfect work-life balance",
-      "remote work pajama days",
-      "office coffee quality",
-      "surprise deadline changes",
-      "team building exercises",
-      "elevator small talk",
-      "working from a coffee shop",
-      "video calls with pets interrupting",
-      "achieving inbox zero",
-      "lunch break food trucks",
-      "open office distractions"
+      "perfectly timed coffee break",
+      "the meeting that could be an email",
+      "pair programming that actually clicks",
+      "naming things (the real hard problem)",
+      "the calendar invite with no agenda",
+      "quiet focus time with noise-cancelling on",
+      "merging a PR on the first review",
+      "laptop about to die during a call",
+      "Slack huddles that never end",
+      "the office plant that refuses to die",
+      "ending the week with inbox zero",
+      "free snacks you pretend not to care about",
+      "standing desk that keeps sinking",
+      "last-minute production hotfix",
+      "Friday deploys (are you brave?)",
+      "remembering where you left your headphones"
     ]
   },
-  rRated: {
-    name: "R-Rated",
+  nonsense: {
+    name: "Nonsense",
     prompts: [
-      "awkward dating app conversations",
-      "running into your ex",
-      "hangovers on important days",
-      "late night questionable decisions",
-      "embarrassing drunk texts",
-      "walk of shame experiences",
-      "terrible pickup lines",
-      "regrettable karaoke song choices",
-      "bathroom humor",
-      "adult responsibilities you avoid",
-      "things you pretend to understand",
-      "guilty pleasure TV shows"
+      "arguing with a goose about rent",
+      "left sock forming a union",
+      "a sandwich that files taxes",
+      "gravity taking a personal day",
+      "screaming into a jar of mayonnaise",
+      "banana that critiques modern art",
+      "the moon asking for a refund",
+      "dolphins running a startup",
+      "time traveling through a nap",
+      "a toaster with stage fright",
+      "alphabet soup spelling spoilers",
+      "staircase with commitment issues",
+      "clouds attending book club",
+      "a spoon that longs to be a fork",
+      "traffic cone with big dreams",
+      "calendar that forgets weekends"
+    ]
+  },
+  abstract: {
+    name: "Abstract",
+    prompts: [
+      "the taste of victory",
+      "memories shaped like paper cranes",
+      "time as a hallway of open doors",
+      "silence that hums like neon",
+      "regret folded into an origami star",
+      "hope in the pockets of a worn coat",
+      "echoes that learn your name",
+      "a sunrise that refuses to end",
+      "laughter hiding under the floorboards",
+      "gravity as a gentle suggestion",
+      "a conversation with your future shadow",
+      "patience growing like ivy",
+      "dreams that leak into Tuesday",
+      "a map with no north and many homes",
+      "raindrops rehearsing their entrance",
+      "footsteps that arrive before you do"
+    ]
+  },
+  adult: {
+    name: "Adult",
+    prompts: [
+      "answering emails you wrote in your head",
+      "budgeting with optimistic spreadsheets",
+      "cleaning the fridge of mysterious jars",
+      "the group chat that never decides",
+      "sleep schedule negotiations",
+      "meal prep ambition on Sunday night",
+      "texts you draft and never send",
+      "moving boxes labeled 'misc forever'",
+      "remembering to water the new plant",
+      "the gym membership you definitely use",
+      "weekend that evaporates instantly",
+      "decluttering that exposes old versions of you",
+      "subscription you forgot you had",
+      "choosing the least annoying alarm sound",
+      "laundry that multiplies in secret",
+      "small talk with your neighbor in pajamas"
     ]
   }
 } as const
 
 export type PromptCategoryKey = keyof typeof PROMPT_CATEGORIES
 
-export const DEFAULT_IDEAS = PROMPT_CATEGORIES.base.prompts
+export const DEFAULT_IDEAS = PROMPT_CATEGORIES.kidFriendly.prompts
 
 export type GamePhase = 'lobby' | 'ranking' | 'waiting' | 'reveal' | 'scores' | 'finished'

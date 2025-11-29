@@ -94,7 +94,7 @@ export function calculatePromptDistribution(
 export async function createGameRoom(
   hostName: string,
   maxRounds: number = 5,
-  selectedCategories: PromptCategoryKey[] = ['base'],
+  selectedCategories: PromptCategoryKey[] = ['kidFriendly'],
   newPromptPercentage: number = 0
 ): Promise<GameRoom> {
   const roomId = uuidv4()
@@ -109,9 +109,9 @@ export async function createGameRoom(
     }
   })
 
-  // Fallback to base if no valid categories or no ideas
+  // Fallback to kidFriendly if no valid categories or no ideas
   if (ideas.length === 0) {
-    ideas.push(...PROMPT_CATEGORIES.base.prompts)
+    ideas.push(...PROMPT_CATEGORIES.kidFriendly.prompts)
   }
 
   const room: GameRoom = {
