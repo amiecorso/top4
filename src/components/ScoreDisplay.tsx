@@ -53,8 +53,10 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
       }
     } catch (error) {
       console.error('🚨 Network error advancing to next round:', error)
-      console.error('🔍 Error details:', error.message)
-      console.error('📍 Error stack:', error.stack)
+      if (error instanceof Error) {
+        console.error('🔍 Error details:', error.message)
+        console.error('📍 Error stack:', error.stack)
+      }
     }
   }
 

@@ -3,12 +3,15 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGameState } from '@/lib/useGameState'
+import { PROMPT_CATEGORIES, PromptCategoryKey } from '@/types/game'
 
 export default function Home() {
   const [hostName, setHostName] = useState('')
   const [playerName, setPlayerName] = useState('')
   const [gameCode, setGameCode] = useState('')
   const [maxRounds, setMaxRounds] = useState(5)
+  const [selectedCategories, setSelectedCategories] = useState<PromptCategoryKey[]>(['base'])
+  const [newPromptPercentage, setNewPromptPercentage] = useState(50)
   const [error, setError] = useState('')
   const router = useRouter()
   const { createGame, joinGame, loading } = useGameState(null, null)
@@ -20,7 +23,7 @@ export default function Home() {
       return
     }
 
-    const result = await createGame(hostName.trim(), maxRounds)
+    const result = await createGame(hostName.trim(), maxRounds, selectedCategories, newPromptPercentage)
     if (result.success) {
       router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
     } else {
@@ -41,6 +44,14 @@ export default function Home() {
     } else {
       setError(result.error || 'Failed to join game')
     }
+  }
+
+  const toggleCategory = (categoryKey: PromptCategoryKey) => {
+    setSelectedCategories(prev =>
+      prev.includes(categoryKey)
+        ? prev.filter(key => key !== categoryKey)
+        : [...prev, categoryKey]
+    )
   }
 
   return (
@@ -84,6 +95,47 @@ export default function Home() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter number of rounds (1-30)"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Prompt Categories
+                </label>
+                <div className="space-y-2">
+                  {Object.entries(PROMPT_CATEGORIES).map(([key, category]) => (
+                    <label key={key} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedCategories.includes(key as PromptCategoryKey)}
+                        onChange={() => toggleCategory(key as PromptCategoryKey)}
+                        className="mr-2"
+                      />
+                      <span className="text-sm">
+                        {category.name} ({category.prompts.length} prompts)
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="newPromptPercentage" className="block text-sm font-medium text-gray-700 mb-2">
+                  Minimum New Prompts: {newPromptPercentage}%
+                </label>
+                <input
+                  id="newPromptPercentage"
+                  type="range"
+                  value={newPromptPercentage}
+                  onChange={(e) => setNewPromptPercentage(parseInt(e.target.value))}
+                  min="0"
+                  max="100"
+                  step="10"
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0% (All existing)</span>
+                  <span>100% (All new)</span>
+                </div>
               </div>
               <button
                 type="submit"

@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { useGameState } from '@/lib/useGameState'
 import { GameLobby } from '@/components/GameLobby'
 import { GamePlay } from '@/components/GamePlay'
+import { PromptSubmission } from '@/components/PromptSubmission'
 
 export default function GameRoom({ params }: { params: { roomId: string } }) {
   const searchParams = useSearchParams()
@@ -47,6 +48,12 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {gameState.status === 'waiting' ? (
         <GameLobby
+          gameState={gameState}
+          currentPlayer={currentPlayer}
+          roomId={params.roomId}
+        />
+      ) : gameState.status === 'prompt_submission' ? (
+        <PromptSubmission
           gameState={gameState}
           currentPlayer={currentPlayer}
           roomId={params.roomId}

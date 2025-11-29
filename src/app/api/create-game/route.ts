@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createGameRoom } from '@/lib/gameManager'
+import { PromptCategoryKey, PROMPT_CATEGORIES } from '@/types/game'
 
 export async function POST(request: NextRequest) {
   try {
-    const { hostName, maxRounds = 5 } = await request.json()
+    const { hostName, maxRounds = 5, selectedCategories = ['base'], newPromptPercentage = 0 } = await request.json()
 
     if (!hostName || typeof hostName !== 'string' || hostName.trim().length === 0) {
       return NextResponse.json({ error: 'Host name is required' }, { status: 400 })
@@ -13,7 +14,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Max rounds must be between 1 and 30' }, { status: 400 })
     }
 
-    const room = await createGameRoom(hostName.trim(), maxRounds)
+    // Validate selected categories
+    const validCategories = selectedCategories.filter((cat: string): cat is PromptCategoryKey =>
+      Object.keys(PROMPT_CATEGORIES).includes(cat)
+    )
+
+    // Default to base if no valid categories
+    const categoriesToUse: PromptCategoryKey[] = validCategories.length > 0 ? validCategories : ['base']
+
+    // Validate new prompt percentage
+    const validPercentage = typeof newPromptPercentage === 'number' && newPromptPercentage >= 0 && newPromptPercentage <= 100
+      ? newPromptPercentage
+      : 0
+
+    const room = await createGameRoom(hostName.trim(), maxRounds, categoriesToUse, validPercentage)
     const hostId = Object.keys(room.players)[0]
 
     return NextResponse.json({
