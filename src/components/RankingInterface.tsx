@@ -60,9 +60,9 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
 
   if (hasCommitted) {
     return (
-      <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 text-center">
-        <div className="text-green-800 font-semibold">✓ Ranking submitted successfully!</div>
-        <div className="text-green-600 mt-2">Waiting for other players...</div>
+      <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center">
+        <div className="text-emerald-800 font-semibold">✓ Ranking submitted successfully!</div>
+        <div className="text-emerald-600 mt-2">Waiting for other players...</div>
       </div>
     )
   }
@@ -75,17 +75,17 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
 
       <div className="space-y-4">
         {ideas.map((idea, index) => (
-          <div key={index} className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg">
-            <div className="flex-1 font-medium">{idea}</div>
-            <div className="flex space-x-1">
+          <div key={index} className="flex items-center space-x-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="flex-1 font-medium text-slate-800">{idea}</div>
+            <div className="flex space-x-2">
               {[1, 2, 3, 4].map((rank) => (
                 <button
                   key={rank}
                   onClick={() => handleRankingChange(index, rank)}
-                  className={`w-10 h-10 rounded-full font-semibold transition-colors ${
+                  className={`w-10 h-10 rounded-full font-semibold transition-all focus:outline-none ${
                     ranking[index] === rank
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white border-2 border-gray-300 text-gray-600 hover:bg-gray-100'
+                      ? 'bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 text-white shadow-md'
+                      : 'bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   {rank}
@@ -100,7 +100,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
         <button
           onClick={submitRanking}
           disabled={ranking.includes(0) || submitting}
-          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+          className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
           {submitting ? 'Submitting...' : 'Submit Ranking'}
         </button>

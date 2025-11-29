@@ -1,3 +1,49 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .card {
+    @apply bg-white/80 backdrop-blur-sm border border-slate-200 shadow-lg rounded-2xl p-6;
+  }
+  .card-lg {
+    @apply card p-8;
+  }
+  .section-title {
+    @apply text-xl font-semibold text-slate-800 mb-4;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-700 mb-2;
+  }
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border border-slate-300 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl font-semibold px-5 py-3 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 text-white hover:from-fuchsia-500 hover:via-violet-500 hover:to-indigo-500 focus:ring-violet-500 shadow-md;
+  }
+  .btn-secondary {
+    @apply btn bg-gradient-to-r from-slate-800 to-slate-900 text-white hover:from-slate-700 hover:to-slate-900 focus:ring-slate-700;
+  }
+  .btn-success {
+    @apply btn bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 focus:ring-emerald-500 shadow-md;
+  }
+  .btn-muted {
+    @apply btn bg-slate-200 text-slate-800 hover:bg-slate-300 focus:ring-slate-300;
+  }
+  .badge {
+    @apply text-xs font-medium px-2 py-1 rounded bg-fuchsia-100 text-fuchsia-800;
+  }
+  .code-box {
+    @apply font-mono text-2xl bg-slate-900 text-white px-4 py-2 rounded-xl shadow-inner tracking-widest;
+  }
+  .divider {
+    @apply border-t border-slate-200 my-6;
+  }
+}
+
+::selection {
+  background: #F5D0FE; /* fuchsia-200 */
+}

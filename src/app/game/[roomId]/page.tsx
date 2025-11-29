@@ -13,7 +13,7 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
 
   if (loading && !gameState) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Loading game...</div>
       </div>
     )
@@ -21,7 +21,7 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
         <div className="text-xl text-red-600">Error: {error}</div>
       </div>
     )
@@ -29,7 +29,7 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
 
   if (!gameState || !playerId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Game not found</div>
       </div>
     )
@@ -38,14 +38,14 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
   const currentPlayer = Object.values(gameState.players).find(p => p.id === playerId)
   if (!currentPlayer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Player not found</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50">
       {gameState.status === 'waiting' ? (
         <GameLobby
           gameState={gameState}
