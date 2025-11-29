@@ -14,6 +14,39 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
   const correctRanking = currentRound?.playerRanking || []
   const currentPlayerName = gameState.players[currentRound?.currentPlayer || '']?.name || 'Unknown'
 
+  const downloadPromptsCsv = () => {
+    const rows: Array<[string, string]> = []
+    const playerPrompts = gameState.playerPrompts || {}
+    for (const [playerId, prompts] of Object.entries(playerPrompts)) {
+      const playerName = gameState.players[playerId]?.name || ''
+      for (const prompt of prompts) {
+        rows.push([playerName, prompt])
+      }
+    }
+
+    const header = ['player_name', 'prompt']
+    const csv = [header, ...rows]
+      .map(cols =>
+        cols
+          .map(val => {
+            const s = String(val ?? '')
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+          })
+          .join(',')
+      )
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `top4-prompts-${gameState.code}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   const handleContinue = async () => {
     console.log('🎮 CONTINUE BUTTON CLICKED!')
     console.log('🎯 Room ID:', roomId)
@@ -168,6 +201,12 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                   className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg"
                 >
                   Return to Lobby
+                </button>
+                <button
+                  onClick={downloadPromptsCsv}
+                  className="ml-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg"
+                >
+                  Download Prompts (CSV)
                 </button>
               </div>
             ) : currentPlayer.id === gameState.host ? (

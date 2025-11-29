@@ -128,6 +128,39 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
   const sortedPlayers = Object.values(gameState.players).sort((a, b) => b.score - a.score)
   const winner = sortedPlayers[0]
 
+  const downloadPromptsCsv = () => {
+    const rows: Array<[string, string]> = []
+    const playerPrompts = gameState.playerPrompts || {}
+    for (const [playerId, prompts] of Object.entries(playerPrompts)) {
+      const playerName = gameState.players[playerId]?.name || ''
+      for (const prompt of prompts) {
+        rows.push([playerName, prompt])
+      }
+    }
+
+    const header = ['player_name', 'prompt']
+    const csv = [header, ...rows]
+      .map(cols =>
+        cols
+          .map(val => {
+            const s = String(val ?? '')
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+          })
+          .join(',')
+      )
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `top4-prompts-${gameState.code}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="min-h-screen p-8 flex items-center justify-center">
       <div className="max-w-2xl mx-auto text-center">
@@ -156,6 +189,12 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
             className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg"
           >
             Return to Lobby
+          </button>
+          <button
+            onClick={downloadPromptsCsv}
+            className="ml-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-8 rounded-lg"
+          >
+            Download Prompts (CSV)
           </button>
         </div>
       </div>
