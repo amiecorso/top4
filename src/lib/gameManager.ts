@@ -59,8 +59,8 @@ export function calculatePromptDistribution(
   numRounds: number,
   minNewPromptPercentage: number
 ) {
-  // Total prompts needed: players × rounds × 4
-  const totalPromptsNeeded = numPlayers * numRounds * 4
+  // Total prompts needed: rounds × 4 (each round needs 4 prompts)
+  const totalPromptsNeeded = numRounds * 4
 
   // Calculate minimum new prompts based on percentage
   const minNewPromptsFloat = (totalPromptsNeeded * minNewPromptPercentage) / 100
