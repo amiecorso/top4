@@ -14,7 +14,7 @@ export function useGameState(roomId: string | null, playerId: string | null) {
     console.log('🔗 Full URL:', `/api/game/${roomId}`)
 
     try {
-      const response = await fetch(`/api/game/${roomId}`)
+      const response = await fetch(`/api/game/${roomId}`, { cache: 'no-store' })
       const data = await response.json()
       console.log('📥 fetchGameState response status:', response.status)
       console.log('📊 fetchGameState response data:', JSON.stringify(data, null, 2))

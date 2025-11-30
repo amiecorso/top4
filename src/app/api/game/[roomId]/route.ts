@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getGameRoom } from '@/lib/gameManager'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { roomId: string } }
@@ -35,9 +38,18 @@ export async function GET(
     console.log('📤 Sending response with currentRound:', room.currentRound)
     console.log('🎮 === GAME API GET END ===')
 
-    return NextResponse.json(response)
+    return NextResponse.json(response, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate'
+      }
+    })
   } catch (error) {
     console.error('🚨 Error fetching game:', error)
-    return NextResponse.json({ error: 'Failed to fetch game' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch game' }, {
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate'
+      }
+    })
   }
 }
