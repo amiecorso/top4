@@ -1,13 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { useGameState } from '@/lib/useGameState'
 import { PROMPT_CATEGORIES, PromptCategoryKey } from '@/types/game'
 
 export default function Home() {
-  const searchParams = useSearchParams()
   const [hostName, setHostName] = useState('')
   const [playerName, setPlayerName] = useState('')
   const [gameCode, setGameCode] = useState('')
@@ -20,11 +18,11 @@ export default function Home() {
   const { createGame, joinGame, loading } = useGameState(null, null)
 
   useEffect(() => {
-    const codeParam = searchParams?.get('code')
-    if (codeParam) {
-      setGameCode(codeParam.toUpperCase())
-    }
-  }, [searchParams])
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const codeParam = params.get('code')
+    if (codeParam) setGameCode(codeParam.toUpperCase())
+  }, [])
 
   const handleCreateGame = async (e: React.FormEvent) => {
     e.preventDefault()
