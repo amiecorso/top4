@@ -302,11 +302,12 @@ export async function joinGameRoom(roomId: string, playerName: string): Promise<
 }
 
 export async function startGame(roomId: string): Promise<boolean> {
-  let shouldStartFirstRound = false
+  console.log('🎬 startGame called for roomId:', roomId)
   const ok = await withRoomLock(roomId, async () => {
     const games = await loadGames()
     const room = games.get(roomId)
     if (!room || room.status !== 'waiting' || Object.keys(room.players).length < 2) {
+      console.log('⚠️ startGame preconditions failed. room exists:', !!room, 'status:', room?.status, 'players:', room ? Object.keys(room.players).length : 0)
       return false
     }
 
@@ -319,6 +320,7 @@ export async function startGame(roomId: string): Promise<boolean> {
     )
 
     if (distribution.newPromptsRequired > 0) {
+      console.log('📝 Switching to prompt_submission. required per player:', distribution.promptsPerPlayer)
       room.status = 'prompt_submission'
       room.requiredPromptsPerPlayer = distribution.promptsPerPlayer
       Object.keys(room.players).forEach(playerId => {
@@ -326,21 +328,20 @@ export async function startGame(roomId: string): Promise<boolean> {
       })
       games.set(roomId, room)
       await saveGames(games)
+      console.log('💾 Saved room with status=prompt_submission')
       return true
     }
 
+    console.log('▶️ Starting game in playing state immediately')
     room.status = 'playing'
     room.currentRound = 1
+    // Create the first round synchronously inside the same lock to avoid serverless deferral issues
+    createAndAppendRound(room)
     games.set(roomId, room)
     await saveGames(games)
-
-    // Defer startNewRound until after lock release to avoid re-entrancy deadlock
-    shouldStartFirstRound = true
+    console.log('💾 Saved room with status=playing, currentRound=1, rounds:', room.rounds.length)
     return true
   })
-  if (ok && shouldStartFirstRound) {
-    await startNewRound(roomId)
-  }
   return ok
 }
 
@@ -403,12 +404,12 @@ export async function submitPlayerPrompt(
  * Build final prompt pool from player submissions and existing prompts, then start the game
  */
 async function buildFinalPromptPoolAndStartGame(roomId: string): Promise<void> {
-  let shouldStart = false
   await withRoomLock(roomId, async () => {
     const games = await loadGames()
     const room = games.get(roomId)
 
     if (!room || room.status !== 'prompt_submission') {
+      console.log('⚠️ buildFinalPromptPoolAndStartGame called in wrong state or missing room')
       return
     }
 
@@ -447,16 +448,13 @@ async function buildFinalPromptPoolAndStartGame(roomId: string): Promise<void> {
     room.usedIdeas = []
     room.status = 'playing'
     room.currentRound = 1
+    // Create the first round synchronously inside the same lock
+    createAndAppendRound(room)
 
     games.set(roomId, room)
     await saveGames(games)
-
-    // Defer starting the round until after lock release
-    shouldStart = true
+    console.log('💾 Saved room with final prompt pool, status=playing, currentRound=1; ideas count:', room.ideas.length, 'rounds:', room.rounds.length)
   })
-  if (shouldStart) {
-    await startNewRound(roomId)
-  }
 }
 
 export async function startNewRound(roomId: string): Promise<GameRound | null> {
@@ -508,6 +506,33 @@ export async function startNewRound(roomId: string): Promise<GameRound | null> {
     console.log('Round saved successfully')
     return round
   })
+}
+
+// Helper to create and append a round while already holding the room lock.
+function createAndAppendRound(room: GameRoom): GameRound {
+  const playerIds = Object.keys(room.players)
+  const currentPlayerIndex = (room.currentRound - 1) % playerIds.length
+  const currentPlayer = playerIds[currentPlayerIndex]
+
+  const availableIdeas = room.ideas.filter(idea => !room.usedIdeas.includes(idea))
+  if (availableIdeas.length < 4) {
+    room.usedIdeas = []
+  }
+  const ideasToUse = availableIdeas.length >= 4 ? availableIdeas : room.ideas
+  const shuffled = [...ideasToUse].sort(() => Math.random() - 0.5)
+  const selectedIdeas = shuffled.slice(0, 4)
+  room.usedIdeas.push(...selectedIdeas)
+
+  const round: GameRound = {
+    currentPlayer,
+    ideas: selectedIdeas,
+    playerRankings: {},
+    committed: [],
+    revealed: false,
+    scores: {}
+  }
+  room.rounds.push(round)
+  return round
 }
 
 export async function submitRanking(roomId: string, playerId: string, ranking: number[]): Promise<boolean> {
