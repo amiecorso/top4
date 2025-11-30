@@ -52,7 +52,13 @@ export function useGameState(roomId: string | null, playerId: string | null) {
     return () => clearInterval(interval)
   }, [roomId])
 
-  const createGame = async (hostName: string, maxRounds: number = 5, selectedCategories: string[] = ['kidFriendly'], newPromptPercentage: number = 0) => {
+  const createGame = async (
+    hostName: string,
+    maxRounds: number = 5,
+    selectedCategories: string[] = ['kidFriendly'],
+    newPromptPercentage: number = 0,
+    roundDurationSeconds: number = 60
+  ) => {
     setLoading(true)
     try {
       const response = await fetch('/api/create-game', {
@@ -60,7 +66,7 @@ export function useGameState(roomId: string | null, playerId: string | null) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ hostName, maxRounds, selectedCategories, newPromptPercentage }),
+        body: JSON.stringify({ hostName, maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds }),
       })
 
       const data = await response.json()

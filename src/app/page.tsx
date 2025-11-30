@@ -12,6 +12,7 @@ export default function Home() {
   const [maxRounds, setMaxRounds] = useState(5)
   const [selectedCategories, setSelectedCategories] = useState<PromptCategoryKey[]>(['kidFriendly'])
   const [newPromptPercentage, setNewPromptPercentage] = useState(50)
+  const [roundDurationSeconds, setRoundDurationSeconds] = useState<number>(60) // 0 = no timer
   const [error, setError] = useState('')
   const router = useRouter()
   const { createGame, joinGame, loading } = useGameState(null, null)
@@ -23,7 +24,7 @@ export default function Home() {
       return
     }
 
-    const result = await createGame(hostName.trim(), maxRounds, selectedCategories, newPromptPercentage)
+    const result = await createGame(hostName.trim(), maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds)
     if (result.success) {
       router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
     } else {
@@ -136,6 +137,27 @@ export default function Home() {
                   <span>0% (All existing)</span>
                   <span>100% (All new)</span>
                 </div>
+              </div>
+              <div>
+                <label htmlFor="roundDuration" className="label">
+                  Round Timer
+                </label>
+                <select
+                  id="roundDuration"
+                  className="input"
+                  value={roundDurationSeconds}
+                  onChange={(e) => setRoundDurationSeconds(parseInt(e.target.value))}
+                >
+                  <option value={0}>No timer</option>
+                  <option value={15}>15 seconds</option>
+                  <option value={30}>30 seconds</option>
+                  <option value={60}>60 seconds</option>
+                  <option value={90}>90 seconds</option>
+                  <option value={120}>120 seconds</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Choose how long each player has to submit rankings. Select “No timer” for unlimited time.
+                </p>
               </div>
               <button
                 type="submit"

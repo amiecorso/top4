@@ -84,6 +84,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             roomId={roomId}
             playerId={currentPlayer.id}
             roundNumber={gameState.currentRound}
+            durationSeconds={gameState.roundDurationSeconds}
           />
 
           {/* Status */}

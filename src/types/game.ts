@@ -31,6 +31,7 @@ export interface GameRoom {
   newPromptPercentage: number
   requiredPromptsPerPlayer: number
   playerPrompts: Record<string, string[]> // playerId -> submitted prompts
+  roundDurationSeconds: number // 0 means no timer
   createdAt: Date
 }
 

@@ -4,7 +4,13 @@ import { PromptCategoryKey, PROMPT_CATEGORIES } from '@/types/game'
 
 export async function POST(request: NextRequest) {
   try {
-    const { hostName, maxRounds = 5, selectedCategories = ['base'], newPromptPercentage = 0 } = await request.json()
+    const {
+      hostName,
+      maxRounds = 5,
+      selectedCategories = ['kidFriendly'],
+      newPromptPercentage = 0,
+      roundDurationSeconds = 60
+    } = await request.json()
 
     if (!hostName || typeof hostName !== 'string' || hostName.trim().length === 0) {
       return NextResponse.json({ error: 'Host name is required' }, { status: 400 })
@@ -19,15 +25,21 @@ export async function POST(request: NextRequest) {
       Object.keys(PROMPT_CATEGORIES).includes(cat)
     )
 
-    // Default to base if no valid categories
-    const categoriesToUse: PromptCategoryKey[] = validCategories.length > 0 ? validCategories : ['base']
+    // Default to kidFriendly if no valid categories
+    const categoriesToUse: PromptCategoryKey[] = validCategories.length > 0 ? validCategories : ['kidFriendly']
+
+    // Validate roundDurationSeconds: 0 (no timer) or between 10 and 600 seconds
+    const duration = Number(roundDurationSeconds)
+    const validDuration = Number.isFinite(duration) && (duration === 0 || (duration >= 10 && duration <= 600))
+      ? duration
+      : 60
 
     // Validate new prompt percentage
     const validPercentage = typeof newPromptPercentage === 'number' && newPromptPercentage >= 0 && newPromptPercentage <= 100
       ? newPromptPercentage
       : 0
 
-    const room = await createGameRoom(hostName.trim(), maxRounds, categoriesToUse, validPercentage)
+    const room = await createGameRoom(hostName.trim(), maxRounds, categoriesToUse, validPercentage, validDuration)
     const hostId = Object.keys(room.players)[0]
 
     return NextResponse.json({

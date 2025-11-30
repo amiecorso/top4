@@ -95,7 +95,8 @@ export async function createGameRoom(
   hostName: string,
   maxRounds: number = 5,
   selectedCategories: PromptCategoryKey[] = ['kidFriendly'],
-  newPromptPercentage: number = 0
+  newPromptPercentage: number = 0,
+  roundDurationSeconds: number = 60
 ): Promise<GameRoom> {
   const roomId = uuidv4()
   const code = generateGameCode()
@@ -136,6 +137,7 @@ export async function createGameRoom(
     newPromptPercentage,
     requiredPromptsPerPlayer: 0,
     playerPrompts: {},
+    roundDurationSeconds,
     createdAt: new Date()
   }
 

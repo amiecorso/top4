@@ -9,11 +9,12 @@ interface RankingInterfaceProps {
   roomId: string
   playerId: string
   roundNumber: number
+  durationSeconds: number
 }
 
-export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId, roundNumber }: RankingInterfaceProps) {
+export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId, roundNumber, durationSeconds }: RankingInterfaceProps) {
   const [ranking, setRanking] = useState<number[]>([0, 0, 0, 0])
-  const [countdown, setCountdown] = useState<number>(60)
+  const [countdown, setCountdown] = useState<number>(durationSeconds)
   const [submitting, setSubmitting] = useState(false)
   const rankingRef = useRef<number[]>([0, 0, 0, 0])
 
@@ -108,7 +109,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
   useEffect(() => {
     setRanking([0, 0, 0, 0])
     rankingRef.current = [0, 0, 0, 0]
-    setCountdown(70)
+    setCountdown(durationSeconds)
   }, [roundNumber])
 
   // Keep rankingRef in sync with state
@@ -118,6 +119,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
 
   // Countdown timer effect
   useEffect(() => {
+    if (!durationSeconds || durationSeconds <= 0) return // no timer mode
     if (hasCommitted) return
     if (submitting) return
 
@@ -142,7 +144,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [hasCommitted, submitting, roundNumber]) // reset when new round (roundNumber) or commit state changes
+  }, [hasCommitted, submitting, roundNumber, durationSeconds]) // reset when new round (roundNumber) or commit state changes
 
   // No sound on low-time warning; visual pulse only
 
@@ -162,6 +164,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
       </h3>
 
       {/* Round timer */}
+      {!!durationSeconds && durationSeconds > 0 && (
       <div className={`mb-4 flex items-center justify-center ${countdown <= 10 ? 'animate-pulse' : ''}`}>
         <div className="w-full md:w-2/3">
           <div className="flex items-center justify-between mb-1">
@@ -177,11 +180,12 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
           <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
             <div
               className={`h-2 rounded-full transition-all duration-1000 ${countdown <= 10 ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600' : 'bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500'}`}
-              style={{ width: `${(countdown / 60) * 100}%` }}
+              style={{ width: `${(countdown / Math.max(1, durationSeconds)) * 100}%` }}
             />
           </div>
         </div>
       </div>
+      )}
 
       <div className="space-y-4">
         {ideas.map((idea, index) => (
