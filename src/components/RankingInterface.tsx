@@ -16,7 +16,9 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
   const [ranking, setRanking] = useState<number[]>([0, 0, 0, 0])
   const [countdown, setCountdown] = useState<number>(durationSeconds)
   const [submitting, setSubmitting] = useState(false)
+  const [clicked, setClicked] = useState(false)
   const rankingRef = useRef<number[]>([0, 0, 0, 0])
+  const submittingRef = useRef(false)
 
   const handleRankingChange = (ideaIndex: number, rank: number) => {
     const newRanking = [...ranking]
@@ -53,6 +55,8 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
   }
 
   const submitRanking = async (auto = false, baseOverride?: number[]) => {
+    // Prevent double-clicks before React applies state updates
+    if (submittingRef.current) return
     const base = baseOverride ?? ranking
     if (base.includes(0) || new Set(base).size !== 4) {
       if (!auto) {
@@ -61,6 +65,8 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
       }
     }
 
+    submittingRef.current = true
+    if (!auto) setClicked(true)
     setSubmitting(true)
     try {
       const payloadRanking = auto ? buildAutoCompletedRanking(base) : base
@@ -83,6 +89,11 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
           } catch {
             alert('Failed to submit ranking')
           }
+          // Allow retry on manual error
+          setClicked(false)
+          setSubmitting(false)
+          submittingRef.current = false
+          return
         } else {
           // Suppress UI alerts for auto-submit; log for troubleshooting
           try {
@@ -91,18 +102,23 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
           } catch {
             console.warn('Auto-submit ranking failed')
           }
+          // Auto case: keep disabled; server will proceed anyway
         }
       }
     } catch (error) {
       console.error('Error submitting ranking:', error)
       if (!auto) {
         alert('Failed to submit ranking')
+        // Allow retry on manual error
+        setClicked(false)
+        setSubmitting(false)
+        submittingRef.current = false
+        return
       } else {
         console.warn('Auto-submit network error')
       }
-    } finally {
-      setSubmitting(false)
     }
+    // On success, keep disabled until the server-driven state flips to committed/reveal
   }
 
   // Reset local state when new round starts (based on roundNumber)
@@ -213,10 +229,10 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
       <div className="mt-6 text-center">
         <button
           onClick={() => submitRanking(false)}
-          disabled={ranking.includes(0) || submitting}
+          disabled={ranking.includes(0) || submitting || clicked}
           className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Submitting...' : 'Submit Ranking'}
+          {submitting || clicked ? 'Submitting...' : 'Submit Ranking'}
         </button>
       </div>
 
