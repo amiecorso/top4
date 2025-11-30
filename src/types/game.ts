@@ -33,6 +33,7 @@ export interface GameRoom {
   playerPrompts: Record<string, string[]> // playerId -> submitted prompts
   roundDurationSeconds: number // 0 means no timer
   createdAt: Date
+  promptsReady?: boolean // true when all players finished submissions; host must start
 }
 
 export interface RankingSubmission {

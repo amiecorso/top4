@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useGameState } from '@/lib/useGameState'
 import { GameLobby } from '@/components/GameLobby'
@@ -8,7 +9,28 @@ import { PromptSubmission } from '@/components/PromptSubmission'
 
 export default function GameRoom({ params }: { params: { roomId: string } }) {
   const searchParams = useSearchParams()
-  const playerId = searchParams?.get('playerId')
+  const [playerId, setPlayerId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const pid = searchParams?.get('playerId')
+    if (pid) {
+      setPlayerId(pid)
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem(`top4:playerId:${params.roomId}`, pid)
+        }
+      } catch (_e) {}
+    } else {
+      try {
+        if (typeof window !== 'undefined') {
+          const stored = window.localStorage.getItem(`top4:playerId:${params.roomId}`)
+          if (stored) setPlayerId(stored)
+        }
+      } catch (_e) {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.roomId, searchParams])
+
   const { gameState, loading, error, refreshGameState } = useGameState(params.roomId, playerId)
 
   if (loading && !gameState) {

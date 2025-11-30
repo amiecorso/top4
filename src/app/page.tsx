@@ -24,8 +24,8 @@ export default function Home() {
     if (codeParam) setGameCode(codeParam.toUpperCase())
   }, [])
 
-  const handleCreateGame = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleCreateGame = async () => {
+    console.log('[Home] Create Game clicked')
     if (!hostName.trim()) {
       setError('Please enter your name')
       return
@@ -33,14 +33,20 @@ export default function Home() {
 
     const result = await createGame(hostName.trim(), maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds)
     if (result.success) {
-      router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
+      console.log('[Home] Create Game success, navigating to room', result.roomId)
+      if (typeof window !== 'undefined') {
+        window.location.href = `/game/${result.roomId}?playerId=${result.playerId}`
+      } else {
+        router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
+      }
     } else {
+      console.log('[Home] Create Game failure', result.error)
       setError(result.error || 'Failed to create game')
     }
   }
 
-  const handleJoinGame = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleJoinGame = async () => {
+    console.log('[Home] Join Game clicked')
     if (!playerName.trim() || !gameCode.trim()) {
       setError('Please enter your name and game code')
       return
@@ -48,8 +54,14 @@ export default function Home() {
 
     const result = await joinGame(gameCode.toUpperCase(), playerName.trim())
     if (result.success) {
-      router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
+      console.log('[Home] Join Game success, navigating to room', result.roomId)
+      if (typeof window !== 'undefined') {
+        window.location.href = `/game/${result.roomId}?playerId=${result.playerId}`
+      } else {
+        router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
+      }
     } else {
+      console.log('[Home] Join Game failure', result.error)
       if (result.error === 'duplicate_name' && result.suggestedName) {
         setPlayerName(result.suggestedName)
         setError(`That name is taken. Suggested: ${result.suggestedName}. You can edit and try again.`)
@@ -83,7 +95,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
           {/* Create Game */}
-          <form onSubmit={handleCreateGame} className="card">
+          <form onSubmit={handleCreateGame} noValidate className="card">
             <h2 className="section-title">Create New Game</h2>
             <div className="space-y-4">
               <input
@@ -172,7 +184,8 @@ export default function Home() {
                 </p>
               </div>
               <button
-                type="submit"
+                type="button"
+                onClick={handleCreateGame}
                 disabled={loading}
                 className="w-full btn-primary disabled:bg-slate-300"
               >
@@ -182,7 +195,7 @@ export default function Home() {
           </form>
 
           {/* Join Game */}
-          <form onSubmit={handleJoinGame} className="card">
+          <form onSubmit={handleJoinGame} noValidate className="card">
             <h2 className="section-title">Join Existing Game</h2>
             <div className="space-y-4">
               <input
@@ -203,7 +216,8 @@ export default function Home() {
                 required
               />
               <button
-                type="submit"
+                type="button"
+                onClick={handleJoinGame}
                 disabled={loading}
                 className="w-full btn-success disabled:bg-slate-300"
               >

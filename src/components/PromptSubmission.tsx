@@ -54,6 +54,31 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
     }
   }
 
+  const allPlayersComplete = Object.keys(gameState.players).every(
+    pid => (gameState.playerPrompts[pid]?.length || 0) >= required
+  )
+  const isHost = currentPlayer.id === gameState.host
+
+  const [starting, setStarting] = useState(false)
+
+  const startGameFromPrompts = async () => {
+    if (!isHost || !allPlayersComplete || starting) return
+    setStarting(true)
+    try {
+      const res = await fetch(`/api/game/${roomId}/finalize-prompts`, {
+        method: 'POST'
+      })
+      if (!res.ok) {
+        // show lightweight inline error
+        setError('Failed to start game. Please try again.')
+        setStarting(false)
+      }
+    } catch {
+      setError('Network error')
+      setStarting(false)
+    }
+  }
+
   if (isComplete) {
     // Show waiting screen
     return (
@@ -96,6 +121,22 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
                 </div>
               )
             })}
+          </div>
+
+          <div className="mt-8">
+            {isHost ? (
+              <button
+                onClick={startGameFromPrompts}
+                disabled={!allPlayersComplete || starting}
+                className="w-full btn-primary disabled:bg-slate-300"
+              >
+                {starting ? 'Starting…' : 'Start Game'}
+              </button>
+            ) : (
+              <div className="text-center text-sm text-slate-500">
+                Waiting for the host to start the game…
+              </div>
+            )}
           </div>
         </div>
       </div>

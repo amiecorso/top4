@@ -61,6 +61,7 @@ export function useGameState(roomId: string | null, playerId: string | null) {
   ) => {
     setLoading(true)
     try {
+      console.log('[useGameState] createGame start', { hostName, maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds })
       const response = await fetch('/api/create-game', {
         method: 'POST',
         headers: {
@@ -72,6 +73,12 @@ export function useGameState(roomId: string | null, playerId: string | null) {
       const data = await response.json()
 
       if (response.ok) {
+        console.log('[useGameState] createGame ok', { roomId: data.roomId })
+        try {
+          if (typeof window !== 'undefined' && data.roomId && data.playerId) {
+            window.localStorage.setItem(`top4:playerId:${data.roomId}`, data.playerId)
+          }
+        } catch (_e) {}
         return {
           success: true,
           roomId: data.roomId,
@@ -80,9 +87,11 @@ export function useGameState(roomId: string | null, playerId: string | null) {
           room: data.room
         }
       } else {
+        console.log('[useGameState] createGame error', data)
         return { success: false, error: data.error }
       }
     } catch (err) {
+      console.log('[useGameState] createGame network error', err)
       return { success: false, error: 'Network error' }
     } finally {
       setLoading(false)
@@ -92,6 +101,7 @@ export function useGameState(roomId: string | null, playerId: string | null) {
   const joinGame = async (code: string, playerName: string) => {
     setLoading(true)
     try {
+      console.log('[useGameState] joinGame start', { code, playerName })
       const response = await fetch('/api/join-game', {
         method: 'POST',
         headers: {
@@ -103,6 +113,12 @@ export function useGameState(roomId: string | null, playerId: string | null) {
       const data = await response.json()
 
       if (response.ok) {
+        console.log('[useGameState] joinGame ok', { roomId: data.roomId })
+        try {
+          if (typeof window !== 'undefined' && data.roomId && data.playerId) {
+            window.localStorage.setItem(`top4:playerId:${data.roomId}`, data.playerId)
+          }
+        } catch (_e) {}
         return {
           success: true,
           roomId: data.roomId,
@@ -110,9 +126,11 @@ export function useGameState(roomId: string | null, playerId: string | null) {
           room: data.room
         }
       } else {
+        console.log('[useGameState] joinGame error', data)
         return { success: false, error: data.error, suggestedName: data.suggestedName }
       }
     } catch (err) {
+      console.log('[useGameState] joinGame network error', err)
       return { success: false, error: 'Network error' }
     } finally {
       setLoading(false)

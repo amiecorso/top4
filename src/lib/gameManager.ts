@@ -393,38 +393,7 @@ export async function submitPlayerPrompt(
     )
 
     if (allPlayersComplete) {
-      // Avoid re-entrant deadlock by finalizing inside the same lock
-      const numPlayers = Object.keys(room.players).length
-      const distribution = calculatePromptDistribution(
-        numPlayers,
-        room.maxRounds,
-        room.newPromptPercentage
-      )
-
-      const newPrompts: string[] = []
-      Object.values(room.playerPrompts).forEach(prompts => {
-        newPrompts.push(...prompts)
-      })
-
-      const existingPrompts: string[] = []
-      if (distribution.existingPromptsNeeded > 0) {
-        const categoryPrompts: string[] = []
-        room.selectedCategories.forEach(categoryKey => {
-          if (PROMPT_CATEGORIES[categoryKey]) {
-            categoryPrompts.push(...PROMPT_CATEGORIES[categoryKey].prompts)
-          }
-        })
-        const shuffledCategoryPrompts = [...categoryPrompts].sort(() => Math.random() - 0.5)
-        existingPrompts.push(...shuffledCategoryPrompts.slice(0, distribution.existingPromptsNeeded))
-      }
-
-      const finalPromptPool = [...newPrompts, ...existingPrompts]
-      room.ideas = finalPromptPool
-      room.usedIdeas = []
-      room.status = 'playing'
-      room.currentRound = 1
-      // Create first round synchronously
-      createAndAppendRound(room)
+      room.promptsReady = true
       games.set(roomId, room)
       await saveGames(games)
     }
@@ -436,7 +405,7 @@ export async function submitPlayerPrompt(
 /**
  * Build final prompt pool from player submissions and existing prompts, then start the game
  */
-async function buildFinalPromptPoolAndStartGame(roomId: string): Promise<void> {
+export async function buildFinalPromptPoolAndStartGame(roomId: string): Promise<void> {
   await withRoomLock(roomId, async () => {
     const games = await loadGames()
     const room = games.get(roomId)
