@@ -14,7 +14,67 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
   const correctRanking = currentRound?.playerRanking || []
   const currentPlayerName = gameState.players[currentRound?.currentPlayer || '']?.name || 'Unknown'
   const isVoided = !!currentRound?.voided
+  const rounds = gameState.rounds
 
+  function computeTieBreakStats() {
+    const perfectCounts: Record<string, number> = {}
+    const twoCounts: Record<string, number> = {}
+    const voidedAsTurnTaker: Record<string, number> = {}
+    const players = Object.keys(gameState.players)
+    players.forEach(pid => {
+      perfectCounts[pid] = 0
+      twoCounts[pid] = 0
+      voidedAsTurnTaker[pid] = 0
+    })
+
+    const cumulative: Record<string, number> = {}
+    players.forEach(pid => (cumulative[pid] = 0))
+
+    rounds.forEach((round, idx) => {
+      if (round.voided) {
+        // penalty already applied to current player via score
+        if (round.currentPlayer in voidedAsTurnTaker) {
+          voidedAsTurnTaker[round.currentPlayer] += 1
+        }
+        return
+      }
+      const correctRankingLocal = round.playerRanking
+      if (!correctRankingLocal) return
+
+      // Update cumulative from round.scores
+      Object.entries(round.scores || {}).forEach(([pid, pts]) => {
+        cumulative[pid] = (cumulative[pid] || 0) + (pts || 0)
+      })
+
+      // Count perfect and two-correct (exactly 2)
+      Object.entries(round.playerRankings || {}).forEach(([pid, prediction]) => {
+        if (pid === round.currentPlayer) return
+        let correct = 0
+        for (let i = 0; i < 4; i++) {
+          if (prediction[i] === correctRankingLocal[i]) correct++
+        }
+        if (correct === 4) perfectCounts[pid] += 1
+        if (correct === 2) twoCounts[pid] += 1
+      })
+    })
+
+    return { perfectCounts, twoCounts, voidedAsTurnTaker }
+  }
+
+  function sortPlayersWithTieBreak() {
+    const { perfectCounts, twoCounts, voidedAsTurnTaker } = computeTieBreakStats()
+    return Object.values(gameState.players).sort((a, b) => {
+      const scoreDiff = (b.score || 0) - (a.score || 0)
+      if (scoreDiff !== 0) return scoreDiff
+      const perfectDiff = (perfectCounts[b.id] || 0) - (perfectCounts[a.id] || 0)
+      if (perfectDiff !== 0) return perfectDiff
+      const twoDiff = (twoCounts[b.id] || 0) - (twoCounts[a.id] || 0)
+      if (twoDiff !== 0) return twoDiff
+      const voidedDiff = (voidedAsTurnTaker[a.id] || 0) - (voidedAsTurnTaker[b.id] || 0) // fewer is better
+      if (voidedDiff !== 0) return voidedDiff
+      return a.name.localeCompare(b.name)
+    })
+  }
   const rankBadgeBg = (rank: number) => {
     switch (rank) {
       case 1:
@@ -231,9 +291,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
           <div className="mb-8">
             <h2 className="section-title">Leaderboard</h2>
             <div className="space-y-2">
-              {Object.values(gameState.players)
-                .sort((a, b) => b.score - a.score)
-                .map((player, index) => (
+              {sortPlayersWithTieBreak().map((player, index) => (
                   <div key={player.id} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <div className="flex items-center text-slate-800">
                       <span className="text-lg font-bold text-slate-600 mr-3">#{index + 1}</span>
@@ -241,7 +299,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                     </div>
                     <span className="text-xl font-bold text-violet-600">{player.score}</span>
                   </div>
-                ))}
+              ))}
             </div>
           </div>
 

@@ -127,8 +127,51 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
 }
 
 function GameFinished({ gameState }: { gameState: GameRoom }) {
-  const sortedPlayers = Object.values(gameState.players).sort((a, b) => b.score - a.score)
+  const sortedPlayers = getSortedPlayers(gameState)
   const winner = sortedPlayers[0]
+
+  function getSortedPlayers(gs: GameRoom) {
+    const players = Object.values(gs.players)
+    const rounds = gs.rounds
+    const perfectCounts: Record<string, number> = {}
+    const twoCounts: Record<string, number> = {}
+    const voidedAsTurnTaker: Record<string, number> = {}
+    players.forEach(p => {
+      perfectCounts[p.id] = 0
+      twoCounts[p.id] = 0
+      voidedAsTurnTaker[p.id] = 0
+    })
+    const cumulative: Record<string, number> = {}
+    players.forEach(p => (cumulative[p.id] = 0))
+    rounds.forEach((round, idx) => {
+      if (round.voided) {
+        voidedAsTurnTaker[round.currentPlayer] = (voidedAsTurnTaker[round.currentPlayer] || 0) + 1
+        return
+      }
+      if (!round.playerRanking) return
+      Object.entries(round.scores || {}).forEach(([pid, pts]) => {
+        cumulative[pid] = (cumulative[pid] || 0) + (pts || 0)
+      })
+      Object.entries(round.playerRankings || {}).forEach(([pid, pred]) => {
+        if (pid === round.currentPlayer) return
+        let correct = 0
+        for (let i = 0; i < 4; i++) if (pred[i] === round.playerRanking![i]) correct++
+        if (correct === 4) perfectCounts[pid] += 1
+        if (correct === 2) twoCounts[pid] += 1
+      })
+    })
+    return players.sort((a, b) => {
+      const scoreDiff = (b.score || 0) - (a.score || 0)
+      if (scoreDiff !== 0) return scoreDiff
+      const perfDiff = (perfectCounts[b.id] || 0) - (perfectCounts[a.id] || 0)
+      if (perfDiff !== 0) return perfDiff
+      const twoDiff = (twoCounts[b.id] || 0) - (twoCounts[a.id] || 0)
+      if (twoDiff !== 0) return twoDiff
+      const voidDiff = (voidedAsTurnTaker[a.id] || 0) - (voidedAsTurnTaker[b.id] || 0)
+      if (voidDiff !== 0) return voidDiff
+      return a.name.localeCompare(b.name)
+    })
+  }
 
   const downloadPromptsCsv = () => {
     const rows: Array<[string, string]> = []

@@ -110,7 +110,7 @@ export function useGameState(roomId: string | null, playerId: string | null) {
           room: data.room
         }
       } else {
-        return { success: false, error: data.error }
+        return { success: false, error: data.error, suggestedName: data.suggestedName }
       }
     } catch (err) {
       return { success: false, error: 'Network error' }

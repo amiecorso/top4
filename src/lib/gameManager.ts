@@ -99,7 +99,14 @@ export async function createGameRoom(
   roundDurationSeconds: number = 60
 ): Promise<GameRoom> {
   const roomId = uuidv4()
-  const code = generateGameCode()
+  const games = await loadGames()
+
+  // Generate a unique 4-letter code across existing rooms
+  let code = generateGameCode()
+  const existingCodes = new Set(Array.from(games.values()).map(r => r.code))
+  while (existingCodes.has(code)) {
+    code = generateGameCode()
+  }
   const hostId = uuidv4()
 
   // Build ideas pool from selected categories
@@ -141,7 +148,6 @@ export async function createGameRoom(
     createdAt: new Date()
   }
 
-  const games = await loadGames()
   games.set(roomId, room)
   await saveGames(games)
   console.log('Created game room:', roomId, 'Total rooms:', games.size)

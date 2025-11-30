@@ -18,6 +18,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Game has already started' }, { status: 400 })
     }
 
+    // Duplicate-name check (case-insensitive)
+    const baseName = playerName.trim()
+    const names = Object.values(room.players).map(p => p.name.toLowerCase())
+    if (names.includes(baseName.toLowerCase())) {
+      // Suggest a suffix " (n)" where n is the smallest integer not used
+      let n = 2
+      let suggestion = `${baseName} (${n})`
+      const lowerSet = new Set(Object.values(room.players).map(p => p.name.toLowerCase()))
+      while (lowerSet.has(suggestion.toLowerCase())) {
+        n += 1
+        suggestion = `${baseName} (${n})`
+      }
+      return NextResponse.json(
+        { error: 'duplicate_name', suggestedName: suggestion },
+        { status: 409 }
+      )
+    }
+
     const player = await joinGameRoom(room.id, playerName.trim())
     if (!player) {
       return NextResponse.json({ error: 'Failed to join game' }, { status: 400 })

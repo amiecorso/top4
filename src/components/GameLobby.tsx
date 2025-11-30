@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { GameRoom, Player } from '@/types/game'
 
 interface GameLobbyProps {
@@ -11,6 +12,13 @@ interface GameLobbyProps {
 export function GameLobby({ gameState, currentPlayer, roomId }: GameLobbyProps) {
   const isHost = currentPlayer.id === gameState.host
   const players = Object.values(gameState.players)
+  const [toast, setToast] = useState<string | null>(null)
+  const [isCopying, setIsCopying] = useState(false)
+
+  const showToast = (msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 1500)
+  }
 
   const handleStartGame = async () => {
     try {
@@ -29,10 +37,44 @@ export function GameLobby({ gameState, currentPlayer, roomId }: GameLobbyProps) 
           <h1 className="text-3xl font-bold text-slate-900 mb-2 text-center">Top Four</h1>
 
           <div className="text-center mb-8">
-            <div className="code-box inline-block">
-              Code: <span className="font-bold text-fuchsia-300">{gameState.code}</span>
+            <div className="flex flex-col items-center gap-3">
+              <div className="code-box inline-block">
+                Code: <span className="font-bold text-fuchsia-300">{gameState.code}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+                    const url = `${origin}/?code=${gameState.code}`
+                    try {
+                      setIsCopying(true)
+                      await navigator.clipboard.writeText(url)
+                      showToast('Share link copied')
+                    } finally {
+                      setIsCopying(false)
+                    }
+                  }}
+                  className="btn-secondary"
+                >
+                  Share
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      setIsCopying(true)
+                      await navigator.clipboard.writeText(gameState.code)
+                      showToast('Game code copied')
+                    } finally {
+                      setIsCopying(false)
+                    }
+                  }}
+                  className="btn-muted"
+                >
+                  Copy Code
+                </button>
+              </div>
+              <p className="text-sm text-slate-500">Share this code with friends to join!</p>
             </div>
-            <p className="text-sm text-slate-500 mt-2">Share this code with friends to join!</p>
           </div>
 
           <div className="mb-8">
@@ -88,6 +130,11 @@ export function GameLobby({ gameState, currentPlayer, roomId }: GameLobbyProps) 
           )}
         </div>
       </div>
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-xl shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
