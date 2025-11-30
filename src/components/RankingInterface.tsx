@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface RankingInterfaceProps {
   ideas: string[]
@@ -8,11 +8,16 @@ interface RankingInterfaceProps {
   hasCommitted: boolean
   roomId: string
   playerId: string
+  roundNumber: number
 }
 
-export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId }: RankingInterfaceProps) {
+export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId, roundNumber }: RankingInterfaceProps) {
   const [ranking, setRanking] = useState<number[]>([0, 0, 0, 0])
+  const [countdown, setCountdown] = useState<number>(60)
   const [submitting, setSubmitting] = useState(false)
+  const hasBeepedRef = useRef(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const rankingRef = useRef<number[]>([0, 0, 0, 0])
 
   const handleRankingChange = (ideaIndex: number, rank: number) => {
     const newRanking = [...ranking]
@@ -25,16 +30,41 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
 
     newRanking[ideaIndex] = rank
     setRanking(newRanking)
+    rankingRef.current = newRanking
   }
 
-  const submitRanking = async () => {
-    if (ranking.includes(0) || new Set(ranking).size !== 4) {
-      alert('Please rank all ideas from 1 to 4')
-      return
+  const buildAutoCompletedRanking = (base: number[]): number[] => {
+    const current = [...base]
+    const usedRanks = new Set(current.filter((r) => r !== 0))
+    const unassignedRanks = [1, 2, 3, 4].filter((r) => !usedRanks.has(r))
+    const unselectedIdeaIndexes: number[] = []
+    for (let i = 0; i < current.length; i++) {
+      if (current[i] === 0) unselectedIdeaIndexes.push(i)
+    }
+
+    // Shuffle unassigned ranks
+    const shuffledRanks = [...unassignedRanks].sort(() => Math.random() - 0.5)
+
+    // Assign shuffled ranks to remaining idea slots
+    for (let i = 0; i < unselectedIdeaIndexes.length; i++) {
+      const idx = unselectedIdeaIndexes[i]
+      current[idx] = shuffledRanks[i]
+    }
+    return current
+  }
+
+  const submitRanking = async (auto = false, baseOverride?: number[]) => {
+    const base = baseOverride ?? ranking
+    if (base.includes(0) || new Set(base).size !== 4) {
+      if (!auto) {
+        alert('Please rank all ideas from 1 to 4')
+        return
+      }
     }
 
     setSubmitting(true)
     try {
+      const payloadRanking = auto ? buildAutoCompletedRanking(base) : base
       const response = await fetch(`/api/game/${roomId}/submit-ranking`, {
         method: 'POST',
         headers: {
@@ -42,21 +72,107 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
         },
         body: JSON.stringify({
           playerId,
-          ranking
+          ranking: payloadRanking
         }),
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        alert(data.error || 'Failed to submit ranking')
+        if (!auto) {
+          try {
+            const data = await response.json()
+            alert(data.error || 'Failed to submit ranking')
+          } catch {
+            alert('Failed to submit ranking')
+          }
+        } else {
+          // Suppress UI alerts for auto-submit; log for troubleshooting
+          try {
+            const text = await response.text()
+            console.warn('Auto-submit ranking failed:', text)
+          } catch {
+            console.warn('Auto-submit ranking failed')
+          }
+        }
       }
     } catch (error) {
       console.error('Error submitting ranking:', error)
-      alert('Failed to submit ranking')
+      if (!auto) {
+        alert('Failed to submit ranking')
+      } else {
+        console.warn('Auto-submit network error')
+      }
     } finally {
       setSubmitting(false)
     }
   }
+
+  // Reset local state when new round starts (based on roundNumber)
+  useEffect(() => {
+    setRanking([0, 0, 0, 0])
+    rankingRef.current = [0, 0, 0, 0]
+    setCountdown(70)
+    hasBeepedRef.current = false
+  }, [roundNumber])
+
+  // Keep rankingRef in sync with state
+  useEffect(() => {
+    rankingRef.current = ranking
+  }, [ranking])
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (hasCommitted) return
+    if (submitting) return
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          // Timeout behavior:
+          // - If current player (turn-taker) times out, void the round (no points, -1 to them)
+          // - Otherwise, auto-submit a completed ranking
+          if (isCurrentPlayer) {
+            fetch(`/api/game/${roomId}/void-round`, { method: 'POST' }).catch(() => {
+              console.warn('Failed to request void round')
+            })
+          } else {
+            submitRanking(true, rankingRef.current)
+          }
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [hasCommitted, submitting, roundNumber]) // reset when new round (roundNumber) or commit state changes
+
+  // Soft beep once when entering last 10s
+  useEffect(() => {
+    if (hasCommitted) return
+    if (countdown === 10 && !hasBeepedRef.current) {
+      hasBeepedRef.current = true
+      try {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+        }
+        const ctx = audioCtxRef.current
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = 880
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start()
+        osc.stop(ctx.currentTime + 0.16)
+      } catch {
+        // ignore audio errors (e.g., autoplay policies)
+      }
+    }
+  }, [countdown, hasCommitted])
 
   if (hasCommitted) {
     return (
@@ -72,6 +188,28 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
       <h3 className="text-lg font-semibold mb-4">
         {isCurrentPlayer ? 'Your Ranking' : 'Your Prediction'}
       </h3>
+
+      {/* Round timer */}
+      <div className={`mb-4 flex items-center justify-center ${countdown <= 10 ? 'animate-pulse' : ''}`}>
+        <div className="w-full md:w-2/3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-medium text-slate-700">Time remaining</span>
+            <span className={`text-sm font-semibold ${countdown <= 10 ? 'text-rose-700' : 'text-violet-700'}`}>
+              {Math.floor(countdown / 60)
+                .toString()
+                .padStart(1, '0')}
+              :
+              {(countdown % 60).toString().padStart(2, '0')}
+            </span>
+          </div>
+          <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div
+              className={`h-2 rounded-full transition-all duration-1000 ${countdown <= 10 ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600' : 'bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500'}`}
+              style={{ width: `${(countdown / 60) * 100}%` }}
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-4">
         {ideas.map((idea, index) => (
@@ -98,7 +236,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
 
       <div className="mt-6 text-center">
         <button
-          onClick={submitRanking}
+          onClick={() => submitRanking(false)}
           disabled={ranking.includes(0) || submitting}
           className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed"
         >

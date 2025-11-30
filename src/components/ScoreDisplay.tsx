@@ -13,6 +13,35 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
   const currentRound = gameState.rounds[gameState.currentRound - 1]
   const correctRanking = currentRound?.playerRanking || []
   const currentPlayerName = gameState.players[currentRound?.currentPlayer || '']?.name || 'Unknown'
+  const isVoided = !!currentRound?.voided
+
+  const rankBadgeBg = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return 'bg-emerald-600'
+      case 2:
+        return 'bg-amber-500'
+      case 3:
+        return 'bg-orange-500'
+      case 4:
+      default:
+        return 'bg-rose-600'
+    }
+  }
+
+  const rankTextColor = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return 'text-emerald-700'
+      case 2:
+        return 'text-amber-700'
+      case 3:
+        return 'text-orange-700'
+      case 4:
+      default:
+        return 'text-rose-700'
+    }
+  }
 
   const downloadPromptsCsv = () => {
     const rows: Array<[string, string]> = []
@@ -101,76 +130,101 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
         <div className="card-lg">
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">Round {gameState.currentRound} Results</h1>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Round {gameState.currentRound} {isVoided ? 'Results — Voided' : 'Results'}
+            </h1>
             <div className="text-lg text-slate-600 mt-2">{currentPlayerName}'s Ranking</div>
           </div>
 
+          {isVoided && (
+            <div className="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-center">
+              <div className="text-rose-700 font-semibold">This round was voided due to a timeout.</div>
+              <div className="text-sm text-rose-700/80 mt-1">Penalty: -1 point applied to {currentPlayerName}.</div>
+            </div>
+          )}
+
           {/* Correct Ranking */}
           <div className="mb-8">
-            <h2 className="section-title">Correct Ranking</h2>
+            <h2 className="section-title">{isVoided ? 'Prompts' : 'Correct Ranking'}</h2>
             <div className="space-y-2">
-              {correctRanking.map((rank, index) => {
-                const ideaIndex = correctRanking.indexOf(index + 1)
-                const idea = currentRound.ideas[ideaIndex]
-                return (
-                  <div key={index} className="flex items-center bg-violet-50 border border-violet-100 p-4 rounded-xl">
-                    <div className="w-8 h-8 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 text-white rounded-full flex items-center justify-center font-bold mr-4">
-                      {index + 1}
+              {isVoided ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {currentRound.ideas.map((idea, idx) => (
+                    <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-slate-800">
+                      {idea}
                     </div>
-                    <div className="font-medium text-slate-800">{idea}</div>
-                  </div>
-                )
-              })}
+                  ))}
+                </div>
+              ) : (
+                correctRanking.map((rank, index) => {
+                  const ideaIndex = correctRanking.indexOf(index + 1)
+                  const idea = currentRound.ideas[ideaIndex]
+                  return (
+                    <div key={index} className="flex items-center bg-violet-50 border border-violet-100 p-4 rounded-xl">
+                      <div className={`w-8 h-8 ${rankBadgeBg(index + 1)} text-white rounded-full flex items-center justify-center font-bold mr-4`}>
+                        {index + 1}
+                      </div>
+                      <div className="font-medium text-slate-800">{idea}</div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 
           {/* Player Predictions and Scores */}
           <div className="mb-8">
             <h2 className="section-title">Player Predictions & Scores</h2>
-            <div className="space-y-4">
-              {Object.entries(currentRound.playerRankings).map(([playerId, prediction]) => {
-                if (playerId === currentRound.currentPlayer) return null
+            {isVoided ? (
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 text-center text-slate-700">
+                Round voided — no predictions scored.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(currentRound.playerRankings).map(([playerId, prediction]) => {
+                  if (playerId === currentRound.currentPlayer) return null
 
-                const player = gameState.players[playerId]
-                const roundScore = currentRound.scores?.[playerId] || 0
+                  const player = gameState.players[playerId]
+                  const roundScore = currentRound.scores?.[playerId] || 0
 
-                return (
-                  <div key={playerId} className="border border-slate-200 rounded-xl p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="font-semibold text-lg text-slate-800">{player?.name}</h3>
-                      <div className="text-xl font-bold text-violet-600">+{roundScore} points</div>
-                    </div>
+                  return (
+                    <div key={playerId} className="border border-slate-200 rounded-xl p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="font-semibold text-lg text-slate-800">{player?.name}</h3>
+                        <div className="text-xl font-bold text-violet-600">+{roundScore} points</div>
+                      </div>
 
-                    <div className="grid grid-cols-4 gap-2">
-                      {prediction.map((predictedRank, ideaIndex) => {
-                        const correctRank = correctRanking[ideaIndex]
-                        const isCorrect = predictedRank === correctRank
+                      <div className="grid grid-cols-4 gap-2">
+                        {prediction.map((predictedRank, ideaIndex) => {
+                          const correctRank = correctRanking[ideaIndex]
+                          const isCorrect = predictedRank === correctRank
 
-                        return (
-                          <div
-                            key={ideaIndex}
-                            className={`p-3 rounded text-center border ${
-                              isCorrect ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200'
-                            }`}
-                          >
-                            <div className="text-sm font-medium mb-1 text-slate-800">{currentRound.ideas[ideaIndex]}</div>
-                            <div className={`text-lg font-bold ${isCorrect ? 'text-emerald-700' : 'text-slate-600'}`}>
-                              #{predictedRank}
-                              {isCorrect && ' ✓'}
-                            </div>
-                            {!isCorrect && (
-                              <div className="text-xs text-slate-500">
-                                (was #{correctRank})
+                          return (
+                            <div
+                              key={ideaIndex}
+                              className={`p-3 rounded text-center border ${
+                                isCorrect ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200'
+                              }`}
+                            >
+                              <div className="text-sm font-medium mb-1 text-slate-800">{currentRound.ideas[ideaIndex]}</div>
+                              <div className="text-lg font-bold">
+                                <span className={isCorrect ? 'text-emerald-800' : 'text-rose-600'}>#{predictedRank}</span>
+                                {isCorrect && ' ✓'}
                               </div>
-                            )}
-                          </div>
-                        )
-                      })}
+                              {!isCorrect && (
+                                <div className="text-xs text-slate-500">
+                                  (was #{correctRank})
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Updated Leaderboard */}
@@ -198,7 +252,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                 <div className="text-lg text-slate-600 mb-4">Game Over! Final scores above.</div>
                 <button
                   onClick={() => window.location.href = '/'}
-                  className="btn-secondary"
+                  className="btn-primary"
                 >
                   Return to Lobby
                 </button>

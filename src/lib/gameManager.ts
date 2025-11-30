@@ -563,3 +563,33 @@ export async function updateGameRoom(room: GameRoom): Promise<void> {
   games.set(room.id, room)
   await saveGames(games)
 }
+
+/**
+ * Void the current round due to a timeout by the turn-taker.
+ * Applies a -1 penalty to the current player and advances to the next round without scoring.
+ */
+export async function voidCurrentRound(roomId: string): Promise<boolean> {
+  const games = await loadGames()
+  const room = games.get(roomId)
+  if (!room) return false
+
+  const currentRound = room.rounds[room.currentRound - 1]
+  if (!currentRound) return false
+
+  // Apply penalty to current player
+  const currentPlayerId = currentRound.currentPlayer
+  if (room.players[currentPlayerId]) {
+    room.players[currentPlayerId].score -= 1
+  }
+
+  // Mark round as revealed with empty scores so clients don't wait on it
+  currentRound.revealed = true
+  currentRound.scores = currentRound.scores || {}
+  currentRound.voided = true
+
+  games.set(roomId, room)
+  await saveGames(games)
+
+  // Do NOT advance automatically; let host continue manually from the results screen
+  return true
+}

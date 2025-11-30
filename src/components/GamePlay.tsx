@@ -83,6 +83,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             hasCommitted={hasCommitted}
             roomId={roomId}
             playerId={currentPlayer.id}
+            roundNumber={gameState.currentRound}
           />
 
           {/* Status */}
@@ -186,7 +187,7 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
 
           <button
             onClick={() => window.location.href = '/'}
-            className="btn-secondary"
+            className="btn-primary"
           >
             Return to Lobby
           </button>

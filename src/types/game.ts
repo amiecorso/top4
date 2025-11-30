@@ -13,6 +13,7 @@ export interface GameRound {
   committed: string[] // Players who have committed their ranking
   revealed: boolean
   scores: Record<string, number> // Points scored this round
+  voided?: boolean // Round voided due to turn-taker timeout
 }
 
 export interface GameRoom {
