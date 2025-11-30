@@ -15,8 +15,6 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
   const [ranking, setRanking] = useState<number[]>([0, 0, 0, 0])
   const [countdown, setCountdown] = useState<number>(60)
   const [submitting, setSubmitting] = useState(false)
-  const hasBeepedRef = useRef(false)
-  const audioCtxRef = useRef<AudioContext | null>(null)
   const rankingRef = useRef<number[]>([0, 0, 0, 0])
 
   const handleRankingChange = (ideaIndex: number, rank: number) => {
@@ -111,7 +109,6 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     setRanking([0, 0, 0, 0])
     rankingRef.current = [0, 0, 0, 0]
     setCountdown(70)
-    hasBeepedRef.current = false
   }, [roundNumber])
 
   // Keep rankingRef in sync with state
@@ -147,32 +144,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     return () => clearInterval(timer)
   }, [hasCommitted, submitting, roundNumber]) // reset when new round (roundNumber) or commit state changes
 
-  // Soft beep once when entering last 10s
-  useEffect(() => {
-    if (hasCommitted) return
-    if (countdown === 10 && !hasBeepedRef.current) {
-      hasBeepedRef.current = true
-      try {
-        if (!audioCtxRef.current) {
-          audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
-        }
-        const ctx = audioCtxRef.current
-        const osc = ctx.createOscillator()
-        const gain = ctx.createGain()
-        osc.type = 'sine'
-        osc.frequency.value = 880
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime)
-        gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.02)
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15)
-        osc.connect(gain)
-        gain.connect(ctx.destination)
-        osc.start()
-        osc.stop(ctx.currentTime + 0.16)
-      } catch {
-        // ignore audio errors (e.g., autoplay policies)
-      }
-    }
-  }, [countdown, hasCommitted])
+  // No sound on low-time warning; visual pulse only
 
   if (hasCommitted) {
     return (
