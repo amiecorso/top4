@@ -229,30 +229,37 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                       </div>
 
                       <div className="grid grid-cols-4 gap-2">
-                        {prediction.map((predictedRank, ideaIndex) => {
-                          const correctRank = correctRanking[ideaIndex]
-                          const isCorrect = predictedRank === correctRank
+                        {prediction
+                          .map((predictedRank, ideaIndex) => ({
+                            ideaIndex,
+                            predictedRank,
+                            idea: currentRound.ideas[ideaIndex],
+                            correctRank: correctRanking[ideaIndex]
+                          }))
+                          .sort((a, b) => a.predictedRank - b.predictedRank)
+                          .map(({ ideaIndex, predictedRank, idea, correctRank }) => {
+                            const isCorrect = predictedRank === correctRank
 
-                          return (
-                            <div
-                              key={ideaIndex}
-                              className={`p-3 rounded text-center border ${
-                                isCorrect ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200'
-                              }`}
-                            >
-                              <div className="text-sm font-medium mb-1 text-slate-800">{currentRound.ideas[ideaIndex]}</div>
-                              <div className="text-lg font-bold">
-                                <span className={isCorrect ? 'text-emerald-800' : 'text-rose-600'}>#{predictedRank}</span>
-                                {isCorrect && ' ✓'}
-                              </div>
-                              {!isCorrect && (
-                                <div className="text-xs text-slate-500">
-                                  (was #{correctRank})
+                            return (
+                              <div
+                                key={ideaIndex}
+                                className={`p-3 rounded text-center border ${
+                                  isCorrect ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200'
+                                }`}
+                              >
+                                <div className="text-sm font-medium mb-1 text-slate-800">{idea}</div>
+                                <div className="text-lg font-bold">
+                                  <span className={isCorrect ? 'text-emerald-800' : 'text-rose-600'}>#{predictedRank}</span>
+                                  {isCorrect && ' ✓'}
                                 </div>
-                              )}
-                            </div>
-                          )
-                        })}
+                                {!isCorrect && (
+                                  <div className="text-xs text-slate-500">
+                                    (was #{correctRank})
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                       </div>
                     </div>
                   )
