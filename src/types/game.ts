@@ -146,6 +146,43 @@ export const PROMPT_CATEGORIES = {
       "laundry that multiplies in secret",
       "small talk with your neighbor in pajamas"
     ]
+  },
+  baseAccount: {
+    name: "Base Account",
+    prompts: [
+      "Wilson's sweater game",
+      "Drinking orange juice at 2 p.m.",
+      "CI fails again",
+      "Meeting during no meeting week",
+      "Tagging Adam",
+      "Content coins",
+      "WalletLink",
+      "Demo gods are not in your favor",
+      "Finding out everyone's heights IRL",
+      "VGL",
+      "Slack message that says \"can we move this two pixels to the left?\"",
+      "Passkeys",
+      "Reorg",
+      "Sunsetting pano",
+      "\"Quick 15-minute huddle\" with Eric at 4 p.m. on a Friday",
+      "Perf review with Eric",
+      "Being responsible for aux",
+      "Eric joins your pod stand up",
+      "Signature validation",
+      "TBA",
+      "All day incident",
+      "Winning the hearts and minds of users",
+      "Warm beer",
+      "Eric laughing too loud",
+      "Perfect cursor one shot",
+      "\"Something went wrong\" ☹️",
+      "Giving a presentation at the all hands",
+      "Offsite Eric",
+      "Parasailing with Chintan",
+      "Getting 10 pages in a single night",
+      "The Mountain View office",
+      "Shipping"
+    ]
   }
 } as const
 
