@@ -230,7 +230,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
         <button
           onClick={() => submitRanking(false)}
           disabled={ranking.includes(0) || submitting || clicked}
-          className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed"
+          className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting || clicked ? 'Submitting...' : 'Submit Ranking'}
         </button>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { GameRoom, Player } from '@/types/game'
 
 interface PromptSubmissionProps {
@@ -13,10 +13,11 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
   const [currentPrompt, setCurrentPrompt] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [optimisticAdds, setOptimisticAdds] = useState(0)
 
   const playerPrompts = gameState.playerPrompts[currentPlayer.id] || []
   const required = gameState.requiredPromptsPerPlayer
-  const submitted = playerPrompts.length
+  const submitted = playerPrompts.length + optimisticAdds
   const remaining = required - submitted
   const isComplete = submitted >= required
 
@@ -26,6 +27,9 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
 
     setSubmitting(true)
     setError('')
+    setOptimisticAdds(prev => prev + 1)
+    const promptToSend = currentPrompt.trim()
+    setCurrentPrompt('')
 
     try {
       const response = await fetch('/api/submit-prompt', {
@@ -36,23 +40,30 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
         body: JSON.stringify({
           roomId,
           playerId: currentPlayer.id,
-          prompt: currentPrompt.trim(),
+          prompt: promptToSend,
         }),
       })
 
       const data = await response.json()
 
       if (response.ok) {
-        setCurrentPrompt('')
+        // ok; optimistic add will be reconciled by polling
       } else {
         setError(data.error || 'Failed to submit prompt')
+        setOptimisticAdds(prev => Math.max(0, prev - 1))
       }
     } catch (err) {
       setError('Network error')
+      setOptimisticAdds(prev => Math.max(0, prev - 1))
     } finally {
       setSubmitting(false)
     }
   }
+
+  // Reconcile optimistic adds when server state catches up
+  useEffect(() => {
+    setOptimisticAdds(0)
+  }, [gameState.playerPrompts[currentPlayer.id]?.length])
 
   const allPlayersComplete = Object.keys(gameState.players).every(
     pid => (gameState.playerPrompts[pid]?.length || 0) >= required
@@ -202,7 +213,7 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
           <button
             type="submit"
             disabled={submitting || !currentPrompt.trim()}
-            className="w-full btn-primary disabled:bg-slate-300 text-lg"
+            className="w-full btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60 text-lg"
           >
             {submitting ? 'Submitting...' : 'Submit Idea'}
           </button>

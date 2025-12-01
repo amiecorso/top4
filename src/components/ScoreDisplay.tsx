@@ -1,6 +1,7 @@
 'use client'
 
 import { GameRoom, Player } from '@/types/game'
+import { useState } from 'react'
 
 interface ScoreDisplayProps {
   gameState: GameRoom
@@ -80,12 +81,12 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
       case 1:
         return 'bg-emerald-600'
       case 2:
-        return 'bg-amber-500'
+        return 'bg-lime-600'
       case 3:
-        return 'bg-orange-500'
+        return 'bg-amber-500'
       case 4:
       default:
-        return 'bg-rose-600'
+        return 'bg-orange-600'
     }
   }
 
@@ -94,12 +95,12 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
       case 1:
         return 'text-emerald-700'
       case 2:
-        return 'text-amber-700'
+        return 'text-lime-700'
       case 3:
-        return 'text-orange-700'
+        return 'text-amber-700'
       case 4:
       default:
-        return 'text-rose-700'
+        return 'text-orange-700'
     }
   }
 
@@ -136,49 +137,22 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
     URL.revokeObjectURL(url)
   }
 
+  const [continuing, setContinuing] = useState(false)
   const handleContinue = async () => {
-    console.log('🎮 CONTINUE BUTTON CLICKED!')
-    console.log('🎯 Room ID:', roomId)
-    console.log('👤 Current Player:', currentPlayer.name, currentPlayer.id)
-    console.log('🎲 Current Round:', gameState.currentRound)
-    console.log('🔗 Making request to:', `/api/game/${roomId}/next-round`)
-
+    if (continuing) return
+    setContinuing(true)
     try {
-      console.log('📡 Sending POST request...')
       const response = await fetch(`/api/game/${roomId}/next-round`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
       })
-
-      console.log('📥 Response received:', response.status, response.statusText)
-      console.log('✅ Response OK:', response.ok)
-
       if (response.ok) {
-        const data = await response.json()
-        console.log('📊 Response data:', data)
-        console.log('🎉 Successfully advanced to next round!')
-
-        // Immediately refresh the game state to show the new round
-        if (refreshGameState) {
-          console.log('🔄 Calling refreshGameState...')
-          refreshGameState()
-          console.log('✨ refreshGameState called successfully')
-        } else {
-          console.warn('⚠️ refreshGameState function not available!')
-        }
+        if (refreshGameState) refreshGameState()
       } else {
-        console.error('❌ Failed to advance to next round:', response.status, response.statusText)
-        const errorData = await response.text()
-        console.error('💥 Error response:', errorData)
+        setContinuing(false)
       }
-    } catch (error) {
-      console.error('🚨 Network error advancing to next round:', error)
-      if (error instanceof Error) {
-        console.error('🔍 Error details:', error.message)
-        console.error('📍 Error stack:', error.stack)
-      }
+    } catch {
+      setContinuing(false)
     }
   }
 
@@ -324,9 +298,10 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
             ) : currentPlayer.id === gameState.host ? (
               <button
                 onClick={handleContinue}
-                className="btn-success"
+                disabled={continuing}
+                className="btn-success disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Continue to Round {gameState.currentRound + 1}
+                {continuing ? 'Continuing…' : `Continue to Round ${gameState.currentRound + 1}`}
               </button>
             ) : (
               <div className="text-lg text-slate-600">Waiting for host to continue...</div>

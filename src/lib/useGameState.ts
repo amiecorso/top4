@@ -8,36 +8,19 @@ export function useGameState(roomId: string | null, playerId: string | null) {
 
   const fetchGameState = async () => {
     if (!roomId) return
-    console.log('🔄 === FETCH GAME STATE START ===')
-    console.log('🎯 fetchGameState called for roomId:', roomId)
-    console.log('🔍 roomId type:', typeof roomId)
-    console.log('🔗 Full URL:', `/api/game/${roomId}`)
 
     try {
       const response = await fetch(`/api/game/${roomId}`, { cache: 'no-store' })
       const data = await response.json()
-      console.log('📥 fetchGameState response status:', response.status)
-      console.log('📊 fetchGameState response data:', JSON.stringify(data, null, 2))
 
       if (response.ok) {
-        console.log('✅ Response OK, updating game state...')
-        console.log('📊 BEFORE setState - current gameState.currentRound:', gameState?.currentRound)
-        console.log('📊 NEW data - currentRound:', data.room?.currentRound)
-        console.log('📊 NEW data - status:', data.room?.status)
-        console.log('📊 NEW data - rounds length:', data.room?.rounds?.length)
-
         setGameState(data.room)
         setError(null)
-
-        console.log('✅ Game state updated successfully')
-        console.log('🔄 === FETCH GAME STATE END ===')
       } else {
-        console.error('❌ fetchGameState error:', data.error)
         setError(data.error || 'Failed to fetch game state')
       }
     } catch (err) {
       setError('Network error')
-      console.error('🚨 fetchGameState network error:', err)
     }
   }
 
@@ -61,7 +44,6 @@ export function useGameState(roomId: string | null, playerId: string | null) {
   ) => {
     setLoading(true)
     try {
-      console.log('[useGameState] createGame start', { hostName, maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds })
       const response = await fetch('/api/create-game', {
         method: 'POST',
         headers: {
@@ -73,7 +55,6 @@ export function useGameState(roomId: string | null, playerId: string | null) {
       const data = await response.json()
 
       if (response.ok) {
-        console.log('[useGameState] createGame ok', { roomId: data.roomId })
         try {
           if (typeof window !== 'undefined' && data.roomId && data.playerId) {
             window.localStorage.setItem(`top4:playerId:${data.roomId}`, data.playerId)
@@ -87,11 +68,9 @@ export function useGameState(roomId: string | null, playerId: string | null) {
           room: data.room
         }
       } else {
-        console.log('[useGameState] createGame error', data)
         return { success: false, error: data.error }
       }
     } catch (err) {
-      console.log('[useGameState] createGame network error', err)
       return { success: false, error: 'Network error' }
     } finally {
       setLoading(false)
@@ -101,7 +80,6 @@ export function useGameState(roomId: string | null, playerId: string | null) {
   const joinGame = async (code: string, playerName: string) => {
     setLoading(true)
     try {
-      console.log('[useGameState] joinGame start', { code, playerName })
       const response = await fetch('/api/join-game', {
         method: 'POST',
         headers: {
@@ -113,7 +91,6 @@ export function useGameState(roomId: string | null, playerId: string | null) {
       const data = await response.json()
 
       if (response.ok) {
-        console.log('[useGameState] joinGame ok', { roomId: data.roomId })
         try {
           if (typeof window !== 'undefined' && data.roomId && data.playerId) {
             window.localStorage.setItem(`top4:playerId:${data.roomId}`, data.playerId)
@@ -126,11 +103,9 @@ export function useGameState(roomId: string | null, playerId: string | null) {
           room: data.room
         }
       } else {
-        console.log('[useGameState] joinGame error', data)
         return { success: false, error: data.error, suggestedName: data.suggestedName }
       }
     } catch (err) {
-      console.log('[useGameState] joinGame network error', err)
       return { success: false, error: 'Network error' }
     } finally {
       setLoading(false)

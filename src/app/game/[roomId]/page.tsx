@@ -10,6 +10,7 @@ import { PromptSubmission } from '@/components/PromptSubmission'
 export default function GameRoom({ params }: { params: { roomId: string } }) {
   const searchParams = useSearchParams()
   const [playerId, setPlayerId] = useState<string | null>(null)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
     const pid = searchParams?.get('playerId')
@@ -28,6 +29,7 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
         }
       } catch (_e) {}
     }
+    setInitialized(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.roomId, searchParams])
 
@@ -49,10 +51,11 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
     )
   }
 
-  if (!gameState || !playerId) {
+  // While initializing or fetching, show loading instead of an error flash
+  if (!initialized || loading || !playerId || !gameState) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
-        <div className="text-xl text-gray-600">Game not found</div>
+        <div className="text-xl text-gray-600">Loading game...</div>
       </div>
     )
   }

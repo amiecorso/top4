@@ -25,7 +25,6 @@ export default function Home() {
   }, [])
 
   const handleCreateGame = async () => {
-    console.log('[Home] Create Game clicked')
     if (!hostName.trim()) {
       setError('Please enter your name')
       return
@@ -33,20 +32,17 @@ export default function Home() {
 
     const result = await createGame(hostName.trim(), maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds)
     if (result.success) {
-      console.log('[Home] Create Game success, navigating to room', result.roomId)
       if (typeof window !== 'undefined') {
         window.location.href = `/game/${result.roomId}?playerId=${result.playerId}`
       } else {
         router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
       }
     } else {
-      console.log('[Home] Create Game failure', result.error)
       setError(result.error || 'Failed to create game')
     }
   }
 
   const handleJoinGame = async () => {
-    console.log('[Home] Join Game clicked')
     if (!playerName.trim() || !gameCode.trim()) {
       setError('Please enter your name and game code')
       return
@@ -54,14 +50,12 @@ export default function Home() {
 
     const result = await joinGame(gameCode.toUpperCase(), playerName.trim())
     if (result.success) {
-      console.log('[Home] Join Game success, navigating to room', result.roomId)
       if (typeof window !== 'undefined') {
         window.location.href = `/game/${result.roomId}?playerId=${result.playerId}`
       } else {
         router.push(`/game/${result.roomId}?playerId=${result.playerId}`)
       }
     } else {
-      console.log('[Home] Join Game failure', result.error)
       if (result.error === 'duplicate_name' && result.suggestedName) {
         setPlayerName(result.suggestedName)
         setError(`That name is taken. Suggested: ${result.suggestedName}. You can edit and try again.`)
@@ -238,6 +232,9 @@ export default function Home() {
             <li><strong>5. Score points</strong> - Get 1 point for each correct position guess</li>
             <li><strong>6. Win the game</strong> - Highest score after all rounds wins!</li>
           </ol>
+          <p className="mt-4 text-sm text-slate-600">
+            Timeout rules: If the turn‑taker’s timer expires, the round is voided and they receive −1 point. If a guesser’s timer expires, only their unassigned ranks are auto‑filled at random.
+          </p>
         </div>
       </div>
     </main>
