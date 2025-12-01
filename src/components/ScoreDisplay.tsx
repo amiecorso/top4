@@ -236,7 +236,12 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                             idea: currentRound.ideas[ideaIndex],
                             correctRank: correctRanking[ideaIndex]
                           }))
-                          .sort((a, b) => a.predictedRank - b.predictedRank)
+                          .sort((a, b) => {
+                            if (a.predictedRank !== b.predictedRank) {
+                              return a.predictedRank - b.predictedRank
+                            }
+                            return a.ideaIndex - b.ideaIndex
+                          })
                           .map(({ ideaIndex, predictedRank, idea, correctRank }) => {
                             const isCorrect = predictedRank === correctRank
 
