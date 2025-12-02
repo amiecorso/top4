@@ -14,6 +14,8 @@ export default function Home() {
   const [newPromptPercentage, setNewPromptPercentage] = useState(50)
   const [roundDurationSeconds, setRoundDurationSeconds] = useState<number>(60) // 0 = no timer
   const [error, setError] = useState('')
+  const [showInappropriate, setShowInappropriate] = useState(false)
+  const [titleClickCount, setTitleClickCount] = useState(0)
   const router = useRouter()
   const { createGame, joinGame, loading } = useGameState(null, null)
 
@@ -22,7 +24,38 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search)
     const codeParam = params.get('code')
     if (codeParam) setGameCode(codeParam.toUpperCase())
+    
+    // Check URL parameter for inappropriate category
+    const showInappropriateParam = params.get('showInappropriate')
+    if (showInappropriateParam === 'true') {
+      setShowInappropriate(true)
+      localStorage.setItem('showInappropriate', 'true')
+    }
+    
+    // Check localStorage for persisted preference
+    const stored = localStorage.getItem('showInappropriate')
+    if (stored === 'true') {
+      setShowInappropriate(true)
+    }
   }, [])
+
+  const handleTitleClick = () => {
+    const newCount = titleClickCount + 1
+    setTitleClickCount(newCount)
+    
+    // Reset counter after 2 seconds
+    setTimeout(() => {
+      setTitleClickCount(0)
+    }, 2000)
+    
+    // Triple-click detected
+    if (newCount >= 3) {
+      const newValue = !showInappropriate
+      setShowInappropriate(newValue)
+      localStorage.setItem('showInappropriate', newValue ? 'true' : 'false')
+      setTitleClickCount(0)
+    }
+  }
 
   const handleCreateGame = async () => {
     if (!hostName.trim()) {
@@ -76,7 +109,13 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto text-center">
-        <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-3">Top Four</h1>
+        <h1 
+          className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-3 cursor-pointer select-none"
+          onClick={handleTitleClick}
+          title={showInappropriate ? 'Click to hide inappropriate category' : undefined}
+        >
+          Top Four
+        </h1>
         <p className="text-slate-600 text-lg mb-10">
           A fun party game where you rank ideas and try to predict others' rankings!
         </p>
@@ -121,19 +160,21 @@ export default function Home() {
                   Prompt Categories
                 </label>
                 <div className="space-y-2">
-                  {Object.entries(PROMPT_CATEGORIES).map(([key, category]) => (
-                    <label key={key} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(key as PromptCategoryKey)}
-                        onChange={() => toggleCategory(key as PromptCategoryKey)}
-                        className="mr-2 accent-indigo-600"
-                      />
-                      <span className="text-sm">
-                        {category.name} ({getPromptCountForCategory(key as PromptCategoryKey)} prompts)
-                      </span>
-                    </label>
-                  ))}
+                  {Object.entries(PROMPT_CATEGORIES)
+                    .filter(([key]) => showInappropriate || key !== 'inappropriate')
+                    .map(([key, category]) => (
+                      <label key={key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(key as PromptCategoryKey)}
+                          onChange={() => toggleCategory(key as PromptCategoryKey)}
+                          className="mr-2 accent-indigo-600"
+                        />
+                        <span className="text-sm">
+                          {category.name} ({getPromptCountForCategory(key as PromptCategoryKey)} prompts)
+                        </span>
+                      </label>
+                    ))}
                 </div>
               </div>
 
