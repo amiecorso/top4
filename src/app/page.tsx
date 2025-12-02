@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useGameState } from '@/lib/useGameState'
-import { PROMPT_CATEGORIES, PromptCategoryKey } from '@/types/game'
+import { PROMPT_CATEGORIES, PromptCategoryKey, getPromptCountForCategory } from '@/types/game'
 
 export default function Home() {
   const [hostName, setHostName] = useState('')
@@ -130,7 +130,7 @@ export default function Home() {
                         className="mr-2 accent-indigo-600"
                       />
                       <span className="text-sm">
-                        {category.name} ({category.prompts.length} prompts)
+                        {category.name} ({getPromptCountForCategory(key as PromptCategoryKey)} prompts)
                       </span>
                     </label>
                   ))}

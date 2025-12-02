@@ -1,4 +1,4 @@
-import { GameRoom, Player, GameRound, DEFAULT_IDEAS, PROMPT_CATEGORIES, PromptCategoryKey } from '@/types/game'
+import { GameRoom, Player, GameRound, DEFAULT_IDEAS, getPromptsByTags, PromptCategoryKey } from '@/types/game'
 import { v4 as uuidv4 } from 'uuid'
 import { promises as fs } from 'fs'
 import { join } from 'path'
@@ -213,17 +213,12 @@ export async function createGameRoom(
   }
   const hostId = uuidv4()
 
-  // Build ideas pool from selected categories
-  const ideas: string[] = []
-  selectedCategories.forEach(categoryKey => {
-    if (PROMPT_CATEGORIES[categoryKey]) {
-      ideas.push(...PROMPT_CATEGORIES[categoryKey].prompts)
-    }
-  })
+  // Build ideas pool from selected categories (union/OR logic)
+  const ideas = getPromptsByTags(selectedCategories)
 
   // Fallback to kidFriendly if no valid categories or no ideas
   if (ideas.length === 0) {
-    ideas.push(...PROMPT_CATEGORIES.kidFriendly.prompts)
+    ideas.push(...getPromptsByTags(['kidFriendly']))
   }
 
   const room: GameRoom = {
@@ -427,22 +422,13 @@ export async function buildFinalPromptPoolAndStartGame(roomId: string): Promise<
       newPrompts.push(...prompts)
     })
 
-    const existingPrompts: string[] = []
-    if (distribution.existingPromptsNeeded > 0) {
-      const categoryPrompts: string[] = []
-      room.selectedCategories.forEach(categoryKey => {
-        if (PROMPT_CATEGORIES[categoryKey]) {
-          categoryPrompts.push(...PROMPT_CATEGORIES[categoryKey].prompts)
-        }
-      })
-
-      const promptsPerCategory = Math.ceil(
-        distribution.existingPromptsNeeded / room.selectedCategories.length
-      )
-
-      const shuffledCategoryPrompts = [...categoryPrompts].sort(() => Math.random() - 0.5)
-      existingPrompts.push(...shuffledCategoryPrompts.slice(0, distribution.existingPromptsNeeded))
-    }
+      const existingPrompts: string[] = []
+      if (distribution.existingPromptsNeeded > 0) {
+        // Get all prompts that match ANY of the selected categories (union/OR logic)
+        const categoryPrompts = getPromptsByTags(room.selectedCategories)
+        const shuffledCategoryPrompts = [...categoryPrompts].sort(() => Math.random() - 0.5)
+        existingPrompts.push(...shuffledCategoryPrompts.slice(0, distribution.existingPromptsNeeded))
+      }
 
     const finalPromptPool = [...newPrompts, ...existingPrompts]
 
