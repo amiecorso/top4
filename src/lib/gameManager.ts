@@ -519,7 +519,8 @@ function createAndAppendRound(room: GameRoom): GameRound {
     committed: [],
     revealed: false,
     scores: {},
-    readyForNextRound: []
+    readyForNextRound: [],
+    manualTimerEndTime: undefined
   }
   room.rounds.push(round)
   return round

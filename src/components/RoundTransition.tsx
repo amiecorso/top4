@@ -8,7 +8,7 @@ interface RoundTransitionProps {
 }
 
 export function RoundTransition({ roundNumber, onComplete }: RoundTransitionProps) {
-  const [countdown, setCountdown] = useState(3)
+  const [countdown, setCountdown] = useState(2)
 
   useEffect(() => {
     if (countdown <= 0) {

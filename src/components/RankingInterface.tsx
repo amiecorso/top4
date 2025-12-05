@@ -10,11 +10,15 @@ interface RankingInterfaceProps {
   playerId: string
   roundNumber: number
   durationSeconds: number
+  manualTimerEndTime?: number // Timestamp when manual timer expires
+  onCountdownChange?: (countdown: number) => void // Callback to notify parent of countdown changes
 }
 
-export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId, roundNumber, durationSeconds }: RankingInterfaceProps) {
+export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId, roundNumber, durationSeconds, manualTimerEndTime, onCountdownChange }: RankingInterfaceProps) {
   const [ranking, setRanking] = useState<number[]>([0, 0, 0, 0])
   const [countdown, setCountdown] = useState<number>(durationSeconds)
+  const [manualTimerActive, setManualTimerActive] = useState(false)
+  const [initialManualTimerDuration, setInitialManualTimerDuration] = useState<number>(20)
   const [submitting, setSubmitting] = useState(false)
   const [clicked, setClicked] = useState(false)
   const rankingRef = useRef<number[]>([0, 0, 0, 0])
@@ -145,18 +149,96 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     setRanking([0, 0, 0, 0])
     rankingRef.current = [0, 0, 0, 0]
     setCountdown(durationSeconds)
-  }, [roundNumber])
+    setManualTimerActive(false)
+    setInitialManualTimerDuration(20)
+  }, [roundNumber, durationSeconds])
+
+  // Check for manual timer and update countdown
+  useEffect(() => {
+    if (manualTimerEndTime) {
+      const now = Date.now()
+      const remaining = Math.max(0, Math.ceil((manualTimerEndTime - now) / 1000))
+      if (remaining > 0) {
+        setManualTimerActive(true)
+        setCountdown(remaining)
+        
+        // Update denominator logic:
+        // - If this is the first time we see a manual timer and there's a round timer, use durationSeconds as base
+        // - If remaining time > current denominator, reset denominator to remaining (time was added beyond current max)
+        // - Otherwise, keep existing denominator (time was added but doesn't exceed current max, so progress position stays)
+        if (initialManualTimerDuration === 20 && durationSeconds > 0) {
+          // First time manual timer appears, use round timer duration as base
+          setInitialManualTimerDuration(durationSeconds)
+        }
+        // If remaining time exceeds current denominator, update it
+        // This happens when time is added and the new total exceeds the previous max
+        if (remaining > initialManualTimerDuration) {
+          setInitialManualTimerDuration(remaining)
+        }
+      } else {
+        setManualTimerActive(false)
+        setCountdown(0)
+      }
+    } else {
+      setManualTimerActive(false)
+      setInitialManualTimerDuration(20) // Reset to default 20 seconds
+      // Reset to durationSeconds if no manual timer
+      if (durationSeconds > 0 && !hasCommitted) {
+        setCountdown(durationSeconds)
+      }
+    }
+  }, [manualTimerEndTime, durationSeconds, hasCommitted, initialManualTimerDuration])
+
+  // Sync manual timer countdown every second
+  useEffect(() => {
+    if (!manualTimerActive || !manualTimerEndTime || hasCommitted) return
+
+    const syncTimer = setInterval(() => {
+      const now = Date.now()
+      const remaining = Math.max(0, Math.ceil((manualTimerEndTime - now) / 1000))
+      setCountdown(remaining)
+      
+      // Update initial duration if remaining time exceeds it (time was added)
+      if (remaining > initialManualTimerDuration) {
+        setInitialManualTimerDuration(remaining)
+      }
+      
+      if (remaining <= 0) {
+        setManualTimerActive(false)
+        // Timer expired - handle timeout
+        if (isCurrentPlayer) {
+          fetch(`/api/game/${roomId}/void-round`, { method: 'POST' }).catch(() => {
+            console.warn('Failed to request void round')
+          })
+        } else {
+          submitRanking(true, rankingRef.current, true)
+        }
+      }
+    }, 1000)
+
+    return () => clearInterval(syncTimer)
+  }, [manualTimerActive, manualTimerEndTime, hasCommitted, isCurrentPlayer, roomId, initialManualTimerDuration])
 
   // Keep rankingRef in sync with state
   useEffect(() => {
     rankingRef.current = ranking
   }, [ranking])
 
-  // Countdown timer effect
+  // Notify parent of countdown changes
   useEffect(() => {
-    if (!durationSeconds || durationSeconds <= 0) return // no timer mode
+    if (onCountdownChange) {
+      onCountdownChange(countdown)
+    }
+  }, [countdown, onCountdownChange])
+
+  // Countdown timer effect (only when manual timer is NOT active)
+  useEffect(() => {
     if (hasCommitted) return
     if (submitting) return
+    if (manualTimerActive) return // Skip if manual timer is active
+
+    // Use durationSeconds if available
+    if (!durationSeconds || durationSeconds <= 0) return
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -179,7 +261,8 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [hasCommitted, submitting, roundNumber, durationSeconds]) // reset when new round (roundNumber) or commit state changes
+  }, [hasCommitted, submitting, roundNumber, durationSeconds, manualTimerActive, isCurrentPlayer, roomId]) // reset when new round (roundNumber) or commit state changes
+
 
   // No sound on low-time warning; visual pulse only
 
@@ -199,7 +282,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
       </h3>
 
       {/* Round timer */}
-      {!!durationSeconds && durationSeconds > 0 && (
+      {(manualTimerActive || (durationSeconds && durationSeconds > 0)) && (
       <div className={`mb-4 flex items-center justify-center ${countdown <= 10 ? 'animate-pulse' : ''}`}>
         <div className="w-full md:w-2/3">
           <div className="flex items-center justify-between mb-1">
@@ -215,7 +298,11 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
           <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
             <div
               className={`h-2 rounded-full transition-all duration-1000 ${countdown <= 10 ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600' : 'bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500'}`}
-              style={{ width: `${(countdown / Math.max(1, durationSeconds)) * 100}%` }}
+              style={{ 
+                width: `${manualTimerActive 
+                  ? (countdown / Math.max(1, initialManualTimerDuration)) * 100 
+                  : (countdown / Math.max(1, durationSeconds)) * 100}%` 
+              }}
             />
           </div>
         </div>
