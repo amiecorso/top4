@@ -5,6 +5,7 @@ import { GameRoom, Player, GameRound } from '@/types/game'
 import { RankingInterface } from './RankingInterface'
 import { ScoreDisplay } from './ScoreDisplay'
 import { RoundTransition } from './RoundTransition'
+import { Confetti } from './Confetti'
 
 function AddTimeButton({ 
   roomId, 
@@ -67,17 +68,26 @@ interface GamePlayProps {
 }
 
 export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }: GamePlayProps) {
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const [showTransition, setShowTransition] = useState(false)
   const [transitionRound, setTransitionRound] = useState<number | null>(null)
   const previousRoundRef = useRef<number>(gameState.currentRound)
   const hasInitializedRef = useRef(false)
   const [currentCountdown, setCurrentCountdown] = useState<number | null>(null)
 
+  // Calculate these before any early returns
   const currentRound = gameState.rounds[gameState.currentRound - 1]
   const isCurrentPlayer = currentPlayer.id === currentRound?.currentPlayer
   const hasCommitted = currentRound?.committed.includes(currentPlayer.id) || false
   const allCommitted = currentRound && currentRound.committed.length === Object.keys(gameState.players).length
   const isRevealed = currentRound?.revealed || false
+
+  // Force refresh when status changes to finished
+  useEffect(() => {
+    if (gameState.status === 'finished' && refreshGameState) {
+      refreshGameState()
+    }
+  }, [gameState.status, refreshGameState])
 
   // Detect round changes and show transition
   useEffect(() => {
@@ -97,15 +107,31 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
     previousRoundRef.current = gameState.currentRound
   }, [gameState.currentRound, isRevealed])
 
+  // NOW we can do conditional returns after all hooks are called
+  // Check for finished status first, before accessing currentRound
+  if (gameState.status === 'finished') {
+    console.log('🎮 Game status is finished, showing GameFinished')
+    return <GameFinished gameState={gameState} />
+  }
+
+  // If we've reached or exceeded the max rounds, the game should be finished
+  // This is a safety check in case status hasn't updated yet
+  if (gameState.currentRound >= gameState.maxRounds) {
+    // Check if we're on the last round's score screen - if so, game is finished
+    const lastRound = gameState.rounds[gameState.maxRounds - 1]
+    if (lastRound?.revealed) {
+      console.log('🎮 Last round revealed and currentRound >= maxRounds, showing GameFinished')
+      return <GameFinished gameState={gameState} />
+    }
+  }
+
   const handleTransitionComplete = () => {
     setShowTransition(false)
     setTransitionRound(null)
   }
 
-  if (gameState.status === 'finished') {
-    return <GameFinished gameState={gameState} />
-  }
 
+  // If no current round but game isn't finished, show loading
   if (!currentRound) {
     return (
       <div className="min-h-screen p-8 flex items-center justify-center">
@@ -115,6 +141,18 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
   }
 
   if (isRevealed) {
+    // Double-check finished status here in case it changed while ScoreDisplay was rendering
+    if (gameState.status === 'finished') {
+      console.log('🎮 ScoreDisplay: status is finished, showing GameFinished')
+      return <GameFinished gameState={gameState} />
+    }
+    
+    // Also check if we're on the last round and it's revealed
+    if (gameState.currentRound >= gameState.maxRounds && currentRound?.revealed) {
+      console.log('🎮 ScoreDisplay: last round revealed, showing GameFinished')
+      return <GameFinished gameState={gameState} />
+    }
+    
     return (
       <>
         {showTransition && transitionRound && (
@@ -149,7 +187,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             <h1 className="text-2xl font-bold text-slate-900">Round {gameState.currentRound} of {gameState.maxRounds}</h1>
             <div className="mt-4">
               {isCurrentPlayer ? (
-                <div className="inline-block px-8 py-4 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 rounded-2xl shadow-lg transform hover:scale-105 transition-transform">
+                <div className="inline-block px-8 py-4 bg-gradient-to-r from-blue-500 via-sky-500 to-cyan-500 rounded-2xl shadow-lg transform hover:scale-105 transition-transform">
                   <div className="text-3xl font-bold text-white">It's Your Turn!</div>
                 </div>
               ) : (
@@ -162,67 +200,15 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             </div>
           </div>
 
-          {/* Current Ideas */}
-          <div className="mb-8">
-            <h2 className="section-title">Ideas to Rank</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {currentRound.ideas.map((idea, index) => (
-                <div key={index} className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
-                  <div className="font-medium text-slate-800">{idea}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Instructions */}
-          <div className="p-4 rounded-xl mb-6 bg-gradient-to-r from-fuchsia-50 via-violet-50 to-indigo-50 border border-violet-100">
-            <p className="text-violet-800">
+          <div className="p-4 rounded-xl mb-6 bg-gradient-to-r from-blue-50 via-sky-50 to-cyan-50 border border-blue-100">
+            <p className="text-blue-800">
               {isCurrentPlayer
                 ? "Rank these ideas from 1 (best) to 4 (worst) according to your personal preference."
                 : `Try to predict how ${gameState.players[currentRound.currentPlayer]?.name} will rank these ideas.`
               }
             </p>
           </div>
-
-          {/* Host Timer Controls */}
-          {currentPlayer.id === gameState.host && !isRevealed && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-              <div className="text-center mb-3">
-                <h3 className="text-lg font-semibold text-amber-900">Host Timer Controls</h3>
-              </div>
-              <div className="flex gap-3 justify-center">
-                {gameState.roundDurationSeconds === 0 && !currentRound.manualTimerEndTime && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await fetch(`/api/game/${roomId}/manual-timer`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ playerId: currentPlayer.id, action: 'start' }),
-                        })
-                        if (refreshGameState) refreshGameState()
-                      } catch (error) {
-                        console.error('Failed to start timer:', error)
-                      }
-                    }}
-                    className="btn-primary"
-                  >
-                    Start 20 Second Countdown
-                  </button>
-                )}
-                {(gameState.roundDurationSeconds > 0 || currentRound.manualTimerEndTime) && (
-                  <AddTimeButton
-                    roomId={roomId}
-                    playerId={currentPlayer.id}
-                    currentRound={currentRound}
-                    roundDurationSeconds={gameState.roundDurationSeconds}
-                    currentCountdown={currentCountdown}
-                    refreshGameState={refreshGameState}
-                  />
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Ranking Interface */}
           <RankingInterface
@@ -250,11 +236,53 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             </div>
 
             {allCommitted && (
-              <div className="mt-4 text-lg font-semibold text-violet-700">
+              <div className="mt-4 text-lg font-semibold text-blue-700">
                 All players ready! Revealing results...
               </div>
             )}
           </div>
+
+          {/* Host Timer Controls */}
+          {currentPlayer.id === gameState.host && !isRevealed && (
+            <div className="mt-8 border-t pt-6">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <div className="text-center mb-3">
+                  <h3 className="text-lg font-semibold text-amber-900">Host Timer Controls</h3>
+                </div>
+                <div className="flex gap-3 justify-center">
+                  {gameState.roundDurationSeconds === 0 && !currentRound.manualTimerEndTime && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await fetch(`/api/game/${roomId}/manual-timer`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ playerId: currentPlayer.id, action: 'start' }),
+                          })
+                          if (refreshGameState) refreshGameState()
+                        } catch (error) {
+                          console.error('Failed to start timer:', error)
+                        }
+                      }}
+                      className="btn-primary"
+                    >
+                      Start 20 Second Countdown
+                    </button>
+                  )}
+                  {(gameState.roundDurationSeconds > 0 || currentRound.manualTimerEndTime) && (
+                    <AddTimeButton
+                      roomId={roomId}
+                      playerId={currentPlayer.id}
+                      currentRound={currentRound}
+                      roundDurationSeconds={gameState.roundDurationSeconds}
+                      currentCountdown={currentCountdown}
+                      refreshGameState={refreshGameState}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Player scores sidebar */}
           <div className="mt-8 border-t pt-6">
@@ -265,7 +293,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
                 .map((player) => (
                   <div key={player.id} className="text-center">
                     <div className="text-lg font-bold text-slate-900">{player.name}</div>
-                    <div className="text-2xl font-bold text-violet-600">{player.score}</div>
+                    <div className="text-2xl font-bold text-blue-600">{player.score}</div>
                   </div>
                 ))}
             </div>
@@ -357,40 +385,88 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
   }
 
   return (
-    <div className="min-h-screen p-8 flex items-center justify-center">
-      <div className="max-w-2xl mx-auto text-center">
-        <div className="card-lg">
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">Game Over!</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-sky-900 to-cyan-900 relative overflow-hidden">
+      <Confetti />
+      
+      {/* Animated background circles */}
+      <div className="absolute inset-0 overflow-hidden">
+        {[...Array(20)].map((_, i) => {
+          const size = Math.random() * 200 + 100
+          const left = Math.random() * 100
+          const top = Math.random() * 100
+          const delay = Math.random() * 3
+          const duration = Math.random() * 4 + 3
+          
+          return (
+            <div
+              key={i}
+              className="absolute rounded-full bg-white/10 animate-pulse"
+              style={{
+                width: `${size}px`,
+                height: `${size}px`,
+                left: `${left}%`,
+                top: `${top}%`,
+                animationDelay: `${delay}s`,
+                animationDuration: `${duration}s`,
+              }}
+            />
+          )
+        })}
+      </div>
 
-          <div className="mb-8">
-            <div className="text-3xl font-bold text-violet-600 mb-2">🏆 {winner.name} Wins!</div>
-            <div className="text-xl text-slate-600">{winner.score} points</div>
+      <div className="max-w-3xl mx-auto text-center relative z-10 p-8">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12">
+          <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-8">Game Over!</h1>
+
+          <div className="mb-10">
+            <div className="inline-block px-8 py-6 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 rounded-2xl shadow-lg mb-4">
+              <div className="text-4xl md:text-5xl font-bold text-slate-900 mb-2">🏆 {winner.name} Wins!</div>
+              <div className="text-2xl md:text-3xl font-semibold text-slate-800">{winner.score} points</div>
+            </div>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-slate-800">Final Scores</h2>
-            <div className="space-y-2">
+          <div className="mb-10">
+            <h2 className="text-2xl md:text-3xl font-bold mb-6 text-slate-800">Final Rankings</h2>
+            <div className="space-y-3">
               {sortedPlayers.map((player, index) => (
-                <div key={player.id} className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
-                  <span className="text-lg font-bold">#{index + 1} {player.name}</span>
-                  <span className="font-bold">{player.score}</span>
+                <div 
+                  key={player.id} 
+                  className={`flex justify-between items-center px-6 py-4 rounded-xl border-2 ${
+                    index === 0 
+                      ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 shadow-md' 
+                      : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className={`text-2xl font-bold ${index === 0 ? 'text-amber-600' : 'text-slate-600'}`}>
+                      #{index + 1}
+                    </span>
+                    <span className={`text-xl md:text-2xl font-bold ${index === 0 ? 'text-slate-900' : 'text-slate-800'}`}>
+                      {player.name}
+                    </span>
+                  </div>
+                  <span className={`text-2xl md:text-3xl font-bold ${index === 0 ? 'text-amber-600' : 'text-blue-600'}`}>
+                    {player.score}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          <button
-            onClick={() => window.location.href = '/'}
-            className="btn-primary"
-          >
-            Return to Lobby
-          </button>
-          <button
-            onClick={downloadPromptsCsv}
-            className="ml-3 btn-muted"
-          >
-            Download Prompts (CSV)
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => window.location.href = '/'}
+              className="btn-primary text-lg px-8 py-4"
+            >
+              Return to Lobby
+            </button>
+            <button
+              onClick={downloadPromptsCsv}
+              className="btn-muted text-lg px-8 py-4"
+            >
+              Download Prompts (CSV)
+            </button>
+          </div>
         </div>
       </div>
     </div>

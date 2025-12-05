@@ -107,7 +107,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 p-6 md:p-10">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 p-6 md:p-10">
       <div className="max-w-3xl mx-auto text-center">
         <h1 
           className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-3 cursor-pointer select-none"
@@ -168,7 +168,7 @@ export default function Home() {
                           type="checkbox"
                           checked={selectedCategories.includes(key as PromptCategoryKey)}
                           onChange={() => toggleCategory(key as PromptCategoryKey)}
-                          className="mr-2 accent-indigo-600"
+                          className="mr-2 accent-blue-600"
                         />
                         <span className="text-sm">
                           {category.name} ({getPromptCountForCategory(key as PromptCategoryKey)} prompts)

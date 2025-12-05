@@ -80,7 +80,7 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
 
   if (loading && !gameState) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Loading game...</div>
       </div>
     )
@@ -88,7 +88,7 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 flex items-center justify-center">
         <div className="text-xl text-red-600">Error: {error}</div>
       </div>
     )
@@ -97,7 +97,7 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
   // While initializing or fetching, show loading instead of an error flash
   if (!initialized || loading || !playerId || !gameState) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Loading game...</div>
       </div>
     )
@@ -106,14 +106,14 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
   const currentPlayer = Object.values(gameState.players).find(p => p.id === playerId)
   if (!currentPlayer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 flex items-center justify-center">
         <div className="text-xl text-gray-600">Player not found</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50">
+    <div className={`min-h-screen ${gameState.status === 'finished' ? '' : 'bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50'}`}>
       {showFirstRoundTransition && (
         <RoundTransition
           roundNumber={1}

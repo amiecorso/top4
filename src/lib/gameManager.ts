@@ -601,95 +601,91 @@ export async function calculateScores(roomId: string): Promise<Record<string, nu
 }
 
 export async function advanceToNextRound(roomId: string): Promise<boolean> {
-  console.log('🚀 === ADVANCE TO NEXT ROUND START ===')
-  console.log('🎯 Room ID received:', roomId)
-  console.log('🔍 Room ID type:', typeof roomId)
-  console.log('🔍 Room ID length:', roomId ? roomId.length : 'N/A')
-
-  const games = await loadGames()
-  console.log('📚 Loaded games map, total rooms:', games.size)
-  console.log('📚 Available room IDs:', Array.from(games.keys()))
-
-  const room = games.get(roomId)
-  if (!room) {
-    console.log('❌ No room found in advanceToNextRound for ID:', roomId)
-    console.log('🔍 Checking if room exists with different casing...')
-    const entriesArray = Array.from(games.entries())
-    for (const [id, gameRoom] of entriesArray) {
-      console.log(`🔍 Comparing "${roomId}" vs "${id}": ${roomId === id}`)
+  return await withRoomLock(roomId, async () => {
+    console.log('🚀 === ADVANCE TO NEXT ROUND START ===')
+    console.log('🎯 Room ID received:', roomId)
+    
+    const games = await loadGames()
+    const room = games.get(roomId)
+    if (!room) {
+      console.log('❌ No room found in advanceToNextRound for ID:', roomId)
+      return false
     }
-    return false
-  }
 
-  console.log('✅ Room found successfully!')
-  console.log('📊 BEFORE ADVANCE - Game State:')
-  console.log('📊 - Room ID:', room.id)
-  console.log('📊 - Current Round:', room.currentRound)
-  console.log('📊 - Max Rounds:', room.maxRounds)
-  console.log('📊 - Status:', room.status)
-  console.log('📊 - Players:', Object.keys(room.players))
-  console.log('📊 - Total Rounds Array Length:', room.rounds.length)
+    console.log('✅ Room found successfully!')
+    console.log('📊 BEFORE ADVANCE - Game State:')
+    console.log('📊 - Room ID:', room.id)
+    console.log('📊 - Current Round:', room.currentRound)
+    console.log('📊 - Max Rounds:', room.maxRounds)
+    console.log('📊 - Status:', room.status)
+    console.log('📊 - Players:', Object.keys(room.players))
+    console.log('📊 - Total Rounds Array Length:', room.rounds.length)
 
-  if (room.currentRound >= room.maxRounds) {
-    console.log('🏁 Game finished, setting status to finished')
-    room.status = 'finished'
-    games.set(roomId, room)
-    await saveGames(games)
-    console.log('💾 Saved finished game state')
-    return false
-  }
+    if (room.currentRound >= room.maxRounds) {
+      console.log('🏁 Game finished, setting status to finished')
+      room.status = 'finished'
+      games.set(roomId, room)
+      await saveGames(games)
+      console.log('💾 Saved finished game state')
+      return false
+    }
 
-  console.log('⏫ Advancing to next round...')
-  const oldRound = room.currentRound
-  room.currentRound += 1
-  console.log(`📈 Round advanced from ${oldRound} to ${room.currentRound}`)
+    console.log('⏫ Advancing to next round...')
+    const oldRound = room.currentRound
+    room.currentRound += 1
+    console.log(`📈 Round advanced from ${oldRound} to ${room.currentRound}`)
 
-  // Save the updated round number BEFORE calling startNewRound
-  console.log('💾 Saving updated currentRound to disk...')
-  games.set(roomId, room)
-  await saveGames(games)
-  console.log('✅ Updated currentRound saved to disk')
+    // Create the new round synchronously within the same lock
+    console.log('🆕 Creating new round...')
+    const playerIds = Object.keys(room.players)
+    const currentPlayerIndex = (room.currentRound - 1) % playerIds.length
+    const currentPlayer = playerIds[currentPlayerIndex]
 
-  // Verify the save worked by reloading
-  console.log('🔄 Verifying save by reloading from disk...')
-  const reloadedGames = await loadGames()
-  const reloadedRoom = reloadedGames.get(roomId)
-  if (reloadedRoom) {
-    console.log('✅ Verification: reloaded currentRound is:', reloadedRoom.currentRound)
-  } else {
-    console.log('❌ Verification failed: could not reload room!')
-  }
+    console.log('Current player:', currentPlayer, 'playerIds:', playerIds)
 
-  console.log('🆕 Starting new round...')
-  const newRound = await startNewRound(roomId)
-  if (newRound) {
+    const availableIdeas = room.ideas.filter(idea => !room.usedIdeas.includes(idea))
+    console.log('Available ideas:', availableIdeas.length, 'Used ideas:', room.usedIdeas.length)
+
+    if (availableIdeas.length < 4) {
+      console.log('Not enough unused ideas, resetting used ideas list')
+      room.usedIdeas = []
+    }
+
+    const ideasToUse = availableIdeas.length >= 4 ? availableIdeas : room.ideas
+    const shuffled = [...ideasToUse].sort(() => Math.random() - 0.5)
+    const selectedIdeas = shuffled.slice(0, 4)
+
+    room.usedIdeas.push(...selectedIdeas)
+    console.log('Selected ideas:', selectedIdeas)
+
+    const newRound: GameRound = {
+      currentPlayer,
+      ideas: selectedIdeas,
+      playerRankings: {},
+      committed: [],
+      revealed: false,
+      scores: {},
+      readyForNextRound: [],
+      manualTimerEndTime: undefined
+    }
+
+    room.rounds.push(newRound)
     console.log('✅ New round created successfully')
     console.log('🆕 New round details:', {
       currentPlayer: newRound.currentPlayer,
       ideas: newRound.ideas.length,
       committed: newRound.committed.length
     })
-  } else {
-    console.log('❌ Failed to create new round')
-  }
 
-  // Final verification
-  console.log('🔄 Final verification - loading game state...')
-  const finalGames = await loadGames()
-  const finalRoom = finalGames.get(roomId)
-  if (finalRoom) {
-    console.log('📊 AFTER ADVANCE - Final Game State:')
-    console.log('📊 - Current Round:', finalRoom.currentRound)
-    console.log('📊 - Total Rounds Array Length:', finalRoom.rounds.length)
-    console.log('📊 - Status:', finalRoom.status)
-    console.log('📊 - Latest round current player:', finalRoom.rounds[finalRoom.rounds.length - 1]?.currentPlayer)
-  } else {
-    console.log('❌ Final verification failed: could not reload room!')
-  }
+    // Save everything together
+    games.set(roomId, room)
+    await saveGames(games)
+    console.log('💾 Saved updated game state with new round')
 
-  console.log('✅ Successfully advanced to next round')
-  console.log('🚀 === ADVANCE TO NEXT ROUND END ===')
-  return true
+    console.log('✅ Successfully advanced to next round')
+    console.log('🚀 === ADVANCE TO NEXT ROUND END ===')
+    return true
+  })
 }
 
 export async function updateGameRoom(room: GameRoom): Promise<void> {

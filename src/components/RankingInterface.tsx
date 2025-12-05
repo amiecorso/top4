@@ -287,7 +287,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
         <div className="w-full md:w-2/3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-medium text-slate-700">Time remaining</span>
-            <span className={`text-sm font-semibold ${countdown <= 10 ? 'text-rose-700' : 'text-violet-700'}`}>
+            <span className={`text-sm font-semibold ${countdown <= 10 ? 'text-orange-700' : 'text-blue-700'}`}>
               {Math.floor(countdown / 60)
                 .toString()
                 .padStart(1, '0')}
@@ -297,7 +297,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
           </div>
           <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
             <div
-              className={`h-2 rounded-full transition-all duration-1000 ${countdown <= 10 ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-rose-600' : 'bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500'}`}
+              className={`h-2 rounded-full transition-all duration-1000 ${countdown <= 10 ? 'bg-gradient-to-r from-amber-500 via-orange-600 to-red-600' : 'bg-gradient-to-r from-blue-500 via-sky-500 to-cyan-500'}`}
               style={{ 
                 width: `${manualTimerActive 
                   ? (countdown / Math.max(1, initialManualTimerDuration)) * 100 
@@ -320,7 +320,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
                   onClick={() => handleRankingChange(index, rank)}
                   className={`w-10 h-10 rounded-full font-semibold transition-all focus:outline-none ${
                     ranking[index] === rank
-                      ? 'bg-gradient-to-r from-fuchsia-600 via-violet-600 to-indigo-600 text-white shadow-md'
+                      ? 'bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-600 text-white shadow-md'
                       : 'bg-white border-2 border-slate-300 text-slate-600 hover:bg-slate-100'
                   }`}
                 >

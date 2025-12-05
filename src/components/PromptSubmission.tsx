@@ -144,8 +144,10 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
                 {starting ? 'Starting…' : 'Start Game'}
               </button>
             ) : (
-              <div className="text-center text-sm text-slate-500">
-                Waiting for the host to start the game…
+              <div className="text-center">
+                <span className="inline-block text-base font-semibold text-blue-600 animate-pulse">
+                  Waiting for the host to start the game
+                </span>
               </div>
             )}
           </div>
@@ -168,13 +170,13 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-lg font-semibold text-slate-800">Your Progress:</span>
-            <span className="text-2xl font-bold text-violet-600">
+            <span className="text-2xl font-bold text-blue-600">
               {submitted} / {required}
             </span>
           </div>
           <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
             <div
-              className="h-3 rounded-full transition-all duration-300 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500"
+              className="h-3 rounded-full transition-all duration-300 bg-gradient-to-r from-blue-500 via-sky-500 to-cyan-500"
               style={{ width: `${(submitted / required) * 100}%` }}
             />
           </div>

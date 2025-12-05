@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 interface RoundTransitionProps {
   roundNumber: number
@@ -9,24 +9,30 @@ interface RoundTransitionProps {
 
 export function RoundTransition({ roundNumber, onComplete }: RoundTransitionProps) {
   const [countdown, setCountdown] = useState(2)
+  const onCompleteRef = useRef(onComplete)
+
+  // Keep onComplete ref up to date
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
 
   useEffect(() => {
     if (countdown <= 0) {
       const timer = setTimeout(() => {
-        onComplete()
+        onCompleteRef.current()
       }, 100)
       return () => clearTimeout(timer)
     }
 
     const timer = setTimeout(() => {
-      setCountdown(countdown - 1)
+      setCountdown(prev => prev - 1)
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [countdown, onComplete])
+  }, [countdown])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-fuchsia-900 via-violet-900 to-indigo-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-900 via-sky-900 to-cyan-900">
       {/* Animated background circles */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(15)].map((_, i) => {

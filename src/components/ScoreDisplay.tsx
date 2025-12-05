@@ -11,6 +11,7 @@ interface ScoreDisplayProps {
 }
 
 export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameState }: ScoreDisplayProps) {
+
   const currentRound = gameState.rounds[gameState.currentRound - 1]
   const correctRanking = currentRound?.playerRanking || []
   const currentPlayerName = gameState.players[currentRound?.currentPlayer || '']?.name || 'Unknown'
@@ -148,7 +149,14 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
         headers: { 'Content-Type': 'application/json' },
       })
       if (response.ok) {
-        if (refreshGameState) refreshGameState()
+        // Force immediate refresh to get updated status
+        if (refreshGameState) {
+          refreshGameState()
+          // Also refresh again after a short delay to ensure we get the latest state
+          setTimeout(() => {
+            if (refreshGameState) refreshGameState()
+          }, 500)
+        }
       } else {
         setContinuing(false)
       }
@@ -169,7 +177,13 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
       if (response.ok) {
         const data = await response.json()
         if (data.advanced) {
-          if (refreshGameState) refreshGameState()
+          if (refreshGameState) {
+            refreshGameState()
+            // Also refresh again after a short delay to ensure we get the latest state
+            setTimeout(() => {
+              if (refreshGameState) refreshGameState()
+            }, 500)
+          }
         } else {
           if (refreshGameState) refreshGameState()
           setMarkingReady(false)
@@ -198,7 +212,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
             <h1 className="text-2xl font-bold text-slate-900">
               Round {gameState.currentRound} {isVoided ? 'Results — Voided' : 'Results'}
             </h1>
-            <div className="mt-4 inline-block px-8 py-4 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 rounded-2xl shadow-lg">
+            <div className="mt-4 inline-block px-8 py-4 bg-gradient-to-r from-blue-500 via-sky-500 to-cyan-500 rounded-2xl shadow-lg">
               <div className="text-3xl font-bold text-white">{currentPlayerName}'s Ranking</div>
             </div>
           </div>
@@ -227,7 +241,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                   const ideaIndex = correctRanking.indexOf(index + 1)
                   const idea = currentRound.ideas[ideaIndex]
                   return (
-                    <div key={index} className="flex items-center bg-violet-50 border border-violet-100 p-4 rounded-xl">
+                    <div key={index} className="flex items-center bg-blue-50 border border-blue-100 p-4 rounded-xl">
                       <div className={`w-8 h-8 ${rankBadgeBg(index + 1)} text-white rounded-full flex items-center justify-center font-bold mr-4`}>
                         {index + 1}
                       </div>
@@ -258,7 +272,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                     <div key={playerId} className="border border-slate-200 rounded-xl p-4">
                       <div className="flex justify-between items-center mb-3">
                         <h3 className="text-2xl font-bold text-slate-900">{player?.name}</h3>
-                        <div className="text-xl font-bold text-violet-600">+{roundScore} points</div>
+                        <div className="text-xl font-bold text-blue-600">+{roundScore} points</div>
                       </div>
 
                       <div className="grid grid-cols-4 gap-2">
@@ -358,7 +372,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                       <span className="text-xl font-bold text-slate-600 mr-4">#{index + 1}</span>
                       <span className="text-xl font-bold text-slate-900">{player.name}</span>
                     </div>
-                    <span className="text-2xl font-bold text-violet-600">{player.score}</span>
+                    <span className="text-2xl font-bold text-blue-600">{player.score}</span>
                   </div>
               ))}
             </div>

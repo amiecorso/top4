@@ -39,7 +39,7 @@ export function GameLobby({ gameState, currentPlayer, roomId }: GameLobbyProps) 
           <div className="text-center mb-8">
             <div className="flex flex-col items-center gap-3">
               <div className="code-box inline-block">
-                Code: <span className="font-bold text-fuchsia-300">{gameState.code}</span>
+                Code: <span className="font-bold text-blue-300">{gameState.code}</span>
               </div>
               <div className="flex gap-2">
                 <button
@@ -86,7 +86,7 @@ export function GameLobby({ gameState, currentPlayer, roomId }: GameLobbyProps) 
                   className="flex items-center justify-between bg-slate-50 px-4 py-3 rounded-xl border border-slate-200"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-lg">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
                       {player.name.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-lg font-bold text-slate-900">{player.name}</span>
@@ -124,8 +124,10 @@ export function GameLobby({ gameState, currentPlayer, roomId }: GameLobbyProps) 
               </button>
             </div>
           ) : (
-            <div className="text-center text-slate-500">
-              Waiting for host to start the game...
+            <div className="text-center">
+              <span className="inline-block text-lg font-semibold text-blue-600 animate-pulse">
+                Waiting for host to start the game
+              </span>
             </div>
           )}
         </div>
