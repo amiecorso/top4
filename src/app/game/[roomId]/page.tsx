@@ -1,16 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useGameState } from '@/lib/useGameState'
 import { GameLobby } from '@/components/GameLobby'
 import { GamePlay } from '@/components/GamePlay'
 import { PromptSubmission } from '@/components/PromptSubmission'
+import { RoundTransition } from '@/components/RoundTransition'
 
 export default function GameRoom({ params }: { params: { roomId: string } }) {
   const searchParams = useSearchParams()
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
+  const [showFirstRoundTransition, setShowFirstRoundTransition] = useState(false)
+  const previousStatusRef = useRef<string | null>(null)
+  const hasShownFirstTransitionRef = useRef(false)
 
   useEffect(() => {
     const pid = searchParams?.get('playerId')
@@ -34,6 +38,45 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
   }, [params.roomId, searchParams])
 
   const { gameState, loading, error, refreshGameState } = useGameState(params.roomId, playerId)
+
+  // Detect transition to first round
+  useEffect(() => {
+    if (!gameState) return
+
+    const currentStatus = gameState.status
+    const previousStatus = previousStatusRef.current
+
+    // Initialize previousStatusRef on first load
+    if (previousStatus === null) {
+      previousStatusRef.current = currentStatus
+      return
+    }
+
+    // Check if we're transitioning from waiting/prompt_submission to playing
+    // Only show if:
+    // 1. Current status is 'playing'
+    // 2. Previous status was NOT 'playing' (transitioning TO playing)
+    // 3. We haven't shown it yet
+    // 4. It's round 1
+    // 5. There's actually a round available (game has started)
+    if (
+      currentStatus === 'playing' &&
+      previousStatus !== 'playing' &&
+      !hasShownFirstTransitionRef.current &&
+      gameState.currentRound === 1 &&
+      gameState.rounds.length > 0
+    ) {
+      setShowFirstRoundTransition(true)
+      hasShownFirstTransitionRef.current = true
+    }
+
+    // Update previous status
+    previousStatusRef.current = currentStatus
+  }, [gameState?.status, gameState?.currentRound, gameState?.rounds.length])
+
+  const handleFirstRoundTransitionComplete = () => {
+    setShowFirstRoundTransition(false)
+  }
 
   if (loading && !gameState) {
     return (
@@ -71,6 +114,12 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-fuchsia-50 via-violet-50 to-sky-50">
+      {showFirstRoundTransition && (
+        <RoundTransition
+          roundNumber={1}
+          onComplete={handleFirstRoundTransitionComplete}
+        />
+      )}
       {gameState.status === 'waiting' ? (
         <GameLobby
           gameState={gameState}

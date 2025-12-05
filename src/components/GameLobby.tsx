@@ -86,10 +86,10 @@ export function GameLobby({ gameState, currentPlayer, roomId }: GameLobbyProps) 
                   className="flex items-center justify-between bg-slate-50 px-4 py-3 rounded-xl border border-slate-200"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold">
+                    <div className="w-10 h-10 rounded-full bg-violet-600 text-white flex items-center justify-center font-bold text-lg">
                       {player.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="font-medium text-slate-800">{player.name}</span>
+                    <span className="text-lg font-bold text-slate-900">{player.name}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     {player.id === gameState.host && (

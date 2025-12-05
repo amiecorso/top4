@@ -14,6 +14,7 @@ export interface GameRound {
   revealed: boolean;
   scores: Record<string, number>; // Points scored this round
   voided?: boolean; // Round voided due to turn-taker timeout
+  readyForNextRound?: string[]; // Players who are ready for the next round
 }
 
 export interface GameRoom {

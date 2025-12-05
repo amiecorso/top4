@@ -54,14 +54,31 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     return current
   }
 
-  const submitRanking = async (auto = false, baseOverride?: number[]) => {
+  const submitRanking = async (auto = false, baseOverride?: number[], allowPartial = false) => {
     // Prevent double-clicks before React applies state updates
     if (submittingRef.current) return
     const base = baseOverride ?? ranking
-    if (base.includes(0) || new Set(base).size !== 4) {
-      if (!auto) {
-        alert('Please rank all ideas from 1 to 4')
-        return
+    
+    // Validate ranking
+    if (!allowPartial) {
+      // Manual submission: must be complete (no 0s, contains 1,2,3,4)
+      if (base.includes(0) || new Set(base).size !== 4) {
+        if (!auto) {
+          alert('Please rank all ideas from 1 to 4')
+          return
+        }
+      }
+    } else {
+      // Partial submission: non-zero values must be valid and unique
+      const nonZeroValues = base.filter(r => r !== 0)
+      const uniqueNonZero = new Set(nonZeroValues)
+      if (nonZeroValues.length !== uniqueNonZero.size) {
+        // Duplicate ranks found - shouldn't happen, but handle gracefully
+        console.warn('Duplicate ranks in partial submission')
+      }
+      // Check all non-zero values are 1-4
+      if (nonZeroValues.some(r => r < 1 || r > 4)) {
+        console.warn('Invalid rank values in partial submission')
       }
     }
 
@@ -69,7 +86,9 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     if (!auto) setClicked(true)
     setSubmitting(true)
     try {
-      const payloadRanking = auto ? buildAutoCompletedRanking(base) : base
+      // If allowPartial is true (timeout case), submit partial ranking with 0s for unranked
+      // Otherwise, auto-complete or use manual submission
+      const payloadRanking = allowPartial ? base : (auto ? buildAutoCompletedRanking(base) : base)
       const response = await fetch(`/api/game/${roomId}/submit-ranking`, {
         method: 'POST',
         headers: {
@@ -145,13 +164,13 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
           clearInterval(timer)
           // Timeout behavior:
           // - If current player (turn-taker) times out, void the round (no points, -1 to them)
-          // - Otherwise, auto-submit a completed ranking
+          // - Otherwise, submit partial ranking (only what they've selected, 0s for unranked)
           if (isCurrentPlayer) {
             fetch(`/api/game/${roomId}/void-round`, { method: 'POST' }).catch(() => {
               console.warn('Failed to request void round')
             })
           } else {
-            submitRanking(true, rankingRef.current)
+            submitRanking(true, rankingRef.current, true)
           }
           return 0
         }

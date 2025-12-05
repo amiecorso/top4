@@ -105,17 +105,16 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
   }
 
   const downloadPromptsCsv = () => {
-    const rows: Array<[string, string]> = []
+    const rows: Array<string> = []
     const playerPrompts = gameState.playerPrompts || {}
     for (const [playerId, prompts] of Object.entries(playerPrompts)) {
-      const playerName = gameState.players[playerId]?.name || ''
       for (const prompt of prompts) {
-        rows.push([playerName, prompt])
+        rows.push(prompt)
       }
     }
 
-    const header = ['player_name', 'prompt']
-    const csv = [header, ...rows]
+    const header = ['prompt']
+    const csv = [header, ...rows.map(prompt => [prompt])]
       .map(cols =>
         cols
           .map(val => {
@@ -138,6 +137,8 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
   }
 
   const [continuing, setContinuing] = useState(false)
+  const [markingReady, setMarkingReady] = useState(false)
+  
   const handleContinue = async () => {
     if (continuing) return
     setContinuing(true)
@@ -156,6 +157,36 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
     }
   }
 
+  const handleReadyForNextRound = async () => {
+    if (markingReady) return
+    setMarkingReady(true)
+    try {
+      const response = await fetch(`/api/game/${roomId}/ready-next-round`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: currentPlayer.id }),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.advanced) {
+          if (refreshGameState) refreshGameState()
+        } else {
+          if (refreshGameState) refreshGameState()
+          setMarkingReady(false)
+        }
+      } else {
+        setMarkingReady(false)
+      }
+    } catch {
+      setMarkingReady(false)
+    }
+  }
+
+  const isReady = currentRound?.readyForNextRound?.includes(currentPlayer.id) || false
+  const readyCount = currentRound?.readyForNextRound?.length || 0
+  const totalPlayers = Object.keys(gameState.players).length
+  const allReady = readyCount === totalPlayers
+
   if (!currentRound) return null
 
   return (
@@ -167,13 +198,15 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
             <h1 className="text-2xl font-bold text-slate-900">
               Round {gameState.currentRound} {isVoided ? 'Results — Voided' : 'Results'}
             </h1>
-            <div className="text-lg text-slate-600 mt-2">{currentPlayerName}'s Ranking</div>
+            <div className="mt-4 inline-block px-8 py-4 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 rounded-2xl shadow-lg">
+              <div className="text-3xl font-bold text-white">{currentPlayerName}'s Ranking</div>
+            </div>
           </div>
 
           {isVoided && (
             <div className="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-center">
               <div className="text-rose-700 font-semibold">This round was voided due to a timeout.</div>
-              <div className="text-sm text-rose-700/80 mt-1">Penalty: -1 point applied to {currentPlayerName}.</div>
+              <div className="text-base font-semibold text-rose-700/80 mt-1">Penalty: -1 point applied to <span className="font-bold">{currentPlayerName}</span>.</div>
             </div>
           )}
 
@@ -224,47 +257,89 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                   return (
                     <div key={playerId} className="border border-slate-200 rounded-xl p-4">
                       <div className="flex justify-between items-center mb-3">
-                        <h3 className="font-semibold text-lg text-slate-800">{player?.name}</h3>
+                        <h3 className="text-2xl font-bold text-slate-900">{player?.name}</h3>
                         <div className="text-xl font-bold text-violet-600">+{roundScore} points</div>
                       </div>
 
                       <div className="grid grid-cols-4 gap-2">
-                        {prediction
-                          .map((predictedRank, ideaIndex) => ({
-                            ideaIndex,
-                            predictedRank,
-                            idea: currentRound.ideas[ideaIndex],
-                            correctRank: correctRanking[ideaIndex]
-                          }))
-                          .sort((a, b) => {
-                            if (a.predictedRank !== b.predictedRank) {
-                              return a.predictedRank - b.predictedRank
+                        {(() => {
+                          // Build mapping of rank -> idea data
+                          const rankToIdea: Array<{ ideaIndex: number; predictedRank: number; idea: string; correctRank: number; isUnranked: boolean } | null> = [null, null, null, null]
+                          const unrankedIdeas: Array<{ ideaIndex: number; idea: string; correctRank: number }> = []
+                          
+                          prediction.forEach((predictedRank, ideaIndex) => {
+                            const idea = currentRound.ideas[ideaIndex]
+                            const correctRank = correctRanking[ideaIndex]
+                            
+                            if (predictedRank === 0) {
+                              unrankedIdeas.push({ ideaIndex, idea, correctRank })
+                            } else {
+                              rankToIdea[predictedRank - 1] = {
+                                ideaIndex,
+                                predictedRank,
+                                idea,
+                                correctRank,
+                                isUnranked: false
+                              }
                             }
-                            return a.ideaIndex - b.ideaIndex
                           })
-                          .map(({ ideaIndex, predictedRank, idea, correctRank }) => {
-                            const isCorrect = predictedRank === correctRank
+                          
+                          // Build display array: rank 1, 2, 3, 4, filling unranked positions with unranked items
+                          const displayItems: Array<{ ideaIndex: number; predictedRank: number; idea: string; correctRank: number; isUnranked: boolean }> = []
+                          let unrankedIndex = 0
+                          
+                          for (let rank = 1; rank <= 4; rank++) {
+                            const rankedItem = rankToIdea[rank - 1]
+                            if (rankedItem) {
+                              displayItems.push(rankedItem)
+                            } else if (unrankedIndex < unrankedIdeas.length) {
+                              // Fill with unranked item
+                              const unranked = unrankedIdeas[unrankedIndex]
+                              displayItems.push({
+                                ideaIndex: unranked.ideaIndex,
+                                predictedRank: 0,
+                                idea: unranked.idea,
+                                correctRank: unranked.correctRank,
+                                isUnranked: true
+                              })
+                              unrankedIndex++
+                            }
+                          }
+                          
+                          return displayItems.map(({ ideaIndex, predictedRank, idea, correctRank, isUnranked }) => {
+                            const isCorrect = !isUnranked && predictedRank === correctRank
 
                             return (
                               <div
                                 key={ideaIndex}
                                 className={`p-3 rounded text-center border ${
-                                  isCorrect ? 'bg-emerald-50 border-emerald-500' : 'bg-slate-50 border-slate-200'
+                                  isUnranked 
+                                    ? 'bg-slate-100 border-slate-300 opacity-60' 
+                                    : isCorrect 
+                                      ? 'bg-emerald-50 border-emerald-500' 
+                                      : 'bg-slate-50 border-slate-200'
                                 }`}
                               >
-                                <div className="text-sm font-medium mb-1 text-slate-800">{idea}</div>
+                                <div className={`text-sm font-medium mb-1 ${isUnranked ? 'text-slate-500' : 'text-slate-800'}`}>{idea}</div>
                                 <div className="text-lg font-bold">
-                                  <span className={isCorrect ? 'text-emerald-800' : 'text-rose-600'}>#{predictedRank}</span>
-                                  {isCorrect && ' ✓'}
+                                  {isUnranked ? (
+                                    <span className="text-slate-500 italic">unranked</span>
+                                  ) : (
+                                    <>
+                                      <span className={isCorrect ? 'text-emerald-800' : 'text-rose-600'}>#{predictedRank}</span>
+                                      {isCorrect && ' ✓'}
+                                    </>
+                                  )}
                                 </div>
                                 {!isCorrect && (
-                                  <div className="text-xs text-slate-500">
+                                  <div className={`text-xs ${isUnranked ? 'text-slate-400' : 'text-slate-500'}`}>
                                     (was #{correctRank})
                                   </div>
                                 )}
                               </div>
                             )
-                          })}
+                          })
+                        })()}
                       </div>
                     </div>
                   )
@@ -280,16 +355,16 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
               {sortPlayersWithTieBreak().map((player, index) => (
                   <div key={player.id} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <div className="flex items-center text-slate-800">
-                      <span className="text-lg font-bold text-slate-600 mr-3">#{index + 1}</span>
-                      <span className="font-medium ">{player.name}</span>
+                      <span className="text-xl font-bold text-slate-600 mr-4">#{index + 1}</span>
+                      <span className="text-xl font-bold text-slate-900">{player.name}</span>
                     </div>
-                    <span className="text-xl font-bold text-violet-600">{player.score}</span>
+                    <span className="text-2xl font-bold text-violet-600">{player.score}</span>
                   </div>
               ))}
             </div>
           </div>
 
-          {/* Continue Button - Only for Host */}
+          {/* Continue/Ready Buttons */}
           <div className="text-center">
             {gameState.currentRound >= gameState.maxRounds ? (
               <div>
@@ -308,15 +383,67 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
                 </button>
               </div>
             ) : currentPlayer.id === gameState.host ? (
-              <button
-                onClick={handleContinue}
-                disabled={continuing}
-                className="btn-success disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {continuing ? 'Continuing…' : `Continue to Round ${gameState.currentRound + 1}`}
-              </button>
+              <div>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                  {isReady ? (
+                    <div className="text-emerald-700 font-medium">
+                      ✓ You're ready for the next round!
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleReadyForNextRound}
+                      disabled={markingReady}
+                      className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {markingReady ? 'Marking ready…' : 'Ready for Next Round'}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleContinue}
+                    disabled={continuing}
+                    className="btn-success disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {continuing ? 'Continuing…' : `Continue to Round ${gameState.currentRound + 1}`}
+                  </button>
+                </div>
+                {allReady && (
+                  <div className="mt-3 text-emerald-700 font-medium">
+                    All players ready! Round will advance automatically.
+                  </div>
+                )}
+                {!allReady && readyCount > 0 && (
+                  <div className="mt-3 text-sm text-slate-600">
+                    {readyCount} of {totalPlayers} players ready
+                  </div>
+                )}
+              </div>
             ) : (
-              <div className="text-lg text-slate-600">Waiting for host to continue...</div>
+              <div>
+                {isReady ? (
+                  <div>
+                    <div className="text-emerald-700 font-medium mb-2">
+                      ✓ You're ready for the next round!
+                    </div>
+                    {allReady ? (
+                      <div className="text-emerald-700 font-medium">
+                        All players ready! Round advancing...
+                      </div>
+                    ) : (
+                      <div className="text-sm text-slate-600">
+                        {readyCount} of {totalPlayers} players ready
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleReadyForNextRound}
+                    disabled={markingReady}
+                    className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {markingReady ? 'Marking ready…' : 'Ready for Next Round'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

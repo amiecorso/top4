@@ -96,7 +96,7 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="max-w-2xl w-full card-lg">
           <h1 className="text-3xl font-bold text-center text-slate-900 mb-6">
-            Great job, {currentPlayer.name}!
+            Great job, <span className="font-bold text-lg">{currentPlayer.name}</span>!
           </h1>
           <p className="text-center text-slate-600 mb-8">
             You've submitted all {required} prompts. Waiting for other players...
@@ -116,7 +116,7 @@ export function PromptSubmission({ gameState, currentPlayer, roomId }: PromptSub
                     isDone ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'
                   }`}
                 >
-                  <span className="font-medium text-slate-800">{player.name}</span>
+                  <span className="text-lg font-bold text-slate-900">{player.name}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-sm text-slate-600">
                       {playerSubmitted} / {required}

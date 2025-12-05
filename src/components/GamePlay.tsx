@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { GameRoom, Player } from '@/types/game'
 import { RankingInterface } from './RankingInterface'
 import { ScoreDisplay } from './ScoreDisplay'
+import { RoundTransition } from './RoundTransition'
 
 interface GamePlayProps {
   gameState: GameRoom
@@ -13,11 +14,39 @@ interface GamePlayProps {
 }
 
 export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }: GamePlayProps) {
+  const [showTransition, setShowTransition] = useState(false)
+  const [transitionRound, setTransitionRound] = useState<number | null>(null)
+  const previousRoundRef = useRef<number>(gameState.currentRound)
+  const hasInitializedRef = useRef(false)
+
   const currentRound = gameState.rounds[gameState.currentRound - 1]
   const isCurrentPlayer = currentPlayer.id === currentRound?.currentPlayer
   const hasCommitted = currentRound?.committed.includes(currentPlayer.id) || false
   const allCommitted = currentRound && currentRound.committed.length === Object.keys(gameState.players).length
   const isRevealed = currentRound?.revealed || false
+
+  // Detect round changes and show transition
+  useEffect(() => {
+    // Skip on initial load
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true
+      previousRoundRef.current = gameState.currentRound
+      return
+    }
+
+    // Only show transition if round increased and we're not on the score screen
+    if (gameState.currentRound > previousRoundRef.current && !isRevealed) {
+      setTransitionRound(gameState.currentRound)
+      setShowTransition(true)
+    }
+
+    previousRoundRef.current = gameState.currentRound
+  }, [gameState.currentRound, isRevealed])
+
+  const handleTransitionComplete = () => {
+    setShowTransition(false)
+    setTransitionRound(null)
+  }
 
   if (gameState.status === 'finished') {
     return <GameFinished gameState={gameState} />
@@ -33,24 +62,49 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
 
   if (isRevealed) {
     return (
-      <ScoreDisplay
-        gameState={gameState}
-        currentPlayer={currentPlayer}
-        roomId={roomId}
-        refreshGameState={refreshGameState}
-      />
+      <>
+        {showTransition && transitionRound && (
+          <RoundTransition
+            roundNumber={transitionRound}
+            onComplete={handleTransitionComplete}
+          />
+        )}
+        <ScoreDisplay
+          gameState={gameState}
+          currentPlayer={currentPlayer}
+          roomId={roomId}
+          refreshGameState={refreshGameState}
+        />
+      </>
     )
   }
 
   return (
+    <>
+      {showTransition && transitionRound && (
+        <RoundTransition
+          roundNumber={transitionRound}
+          onComplete={handleTransitionComplete}
+        />
+      )}
     <div className="min-h-screen p-4">
       <div className="max-w-4xl mx-auto">
         <div className="card-lg">
           {/* Header */}
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Round {gameState.currentRound} of {gameState.maxRounds}</h1>
-            <div className="text-lg text-slate-600 mt-2">
-              {isCurrentPlayer ? "It's your turn!" : `${gameState.players[currentRound.currentPlayer]?.name || 'Unknown'}'s turn`}
+            <div className="mt-4">
+              {isCurrentPlayer ? (
+                <div className="inline-block px-8 py-4 bg-gradient-to-r from-fuchsia-500 via-violet-500 to-indigo-500 rounded-2xl shadow-lg transform hover:scale-105 transition-transform">
+                  <div className="text-3xl font-bold text-white">It's Your Turn!</div>
+                </div>
+              ) : (
+                <div className="inline-block px-8 py-4 bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 rounded-2xl shadow-lg">
+                  <div className="text-3xl font-bold text-white">
+                    {gameState.players[currentRound.currentPlayer]?.name || 'Unknown'}'s Turn
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -114,7 +168,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
                 .sort((a, b) => b.score - a.score)
                 .map((player) => (
                   <div key={player.id} className="text-center">
-                    <div className="font-medium text-slate-800">{player.name}</div>
+                    <div className="text-lg font-bold text-slate-900">{player.name}</div>
                     <div className="text-2xl font-bold text-violet-600">{player.score}</div>
                   </div>
                 ))}
@@ -123,6 +177,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
         </div>
       </div>
     </div>
+    </>
   )
 }
 
@@ -174,17 +229,16 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
   }
 
   const downloadPromptsCsv = () => {
-    const rows: Array<[string, string]> = []
+    const rows: Array<string> = []
     const playerPrompts = gameState.playerPrompts || {}
     for (const [playerId, prompts] of Object.entries(playerPrompts)) {
-      const playerName = gameState.players[playerId]?.name || ''
       for (const prompt of prompts) {
-        rows.push([playerName, prompt])
+        rows.push(prompt)
       }
     }
 
-    const header = ['player_name', 'prompt']
-    const csv = [header, ...rows]
+    const header = ['prompt']
+    const csv = [header, ...rows.map(prompt => [prompt])]
       .map(cols =>
         cols
           .map(val => {
@@ -213,7 +267,7 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
           <h1 className="text-4xl font-bold text-slate-900 mb-4">Game Over!</h1>
 
           <div className="mb-8">
-            <div className="text-2xl font-semibold text-violet-600 mb-2">🏆 {winner.name} Wins!</div>
+            <div className="text-3xl font-bold text-violet-600 mb-2">🏆 {winner.name} Wins!</div>
             <div className="text-xl text-slate-600">{winner.score} points</div>
           </div>
 
@@ -222,7 +276,7 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
             <div className="space-y-2">
               {sortedPlayers.map((player, index) => (
                 <div key={player.id} className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
-                  <span>#{index + 1} {player.name}</span>
+                  <span className="text-lg font-bold">#{index + 1} {player.name}</span>
                   <span className="font-bold">{player.score}</span>
                 </div>
               ))}

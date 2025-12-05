@@ -484,7 +484,8 @@ export async function startNewRound(roomId: string): Promise<GameRound | null> {
       playerRankings: {},
       committed: [],
       revealed: false,
-      scores: {}
+      scores: {},
+      readyForNextRound: []
     }
 
     console.log('Created round with ideas:', selectedIdeas)
@@ -517,7 +518,8 @@ function createAndAppendRound(room: GameRoom): GameRound {
     playerRankings: {},
     committed: [],
     revealed: false,
-    scores: {}
+    scores: {},
+    readyForNextRound: []
   }
   room.rounds.push(round)
   return round
@@ -536,6 +538,12 @@ export async function submitRanking(roomId: string, playerId: string, ranking: n
     currentRound.committed.push(playerId)
 
     if (playerId === currentRound.currentPlayer) {
+      // Turn-taker's ranking must be complete (no partial rankings allowed)
+      const hasUnranked = ranking.includes(0)
+      if (hasUnranked) {
+        console.error('Turn-taker attempted to submit partial ranking - this should not happen')
+        return false
+      }
       currentRound.playerRanking = ranking
     }
 
@@ -573,7 +581,8 @@ export async function calculateScores(roomId: string): Promise<Record<string, nu
       if (playerId === currentRound.currentPlayer) continue
       let points = 0
       for (let i = 0; i < 4; i++) {
-        if (prediction[i] === correctRanking[i]) {
+        // Only score if the prediction is not unranked (0)
+        if (prediction[i] !== 0 && prediction[i] === correctRanking[i]) {
           points += 1
         }
       }
