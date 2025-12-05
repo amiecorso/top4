@@ -141,13 +141,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
   }
 
   if (isRevealed) {
-    // Double-check finished status here in case it changed while ScoreDisplay was rendering
-    if (gameState.status === 'finished') {
-      console.log('🎮 ScoreDisplay: status is finished, showing GameFinished')
-      return <GameFinished gameState={gameState} />
-    }
-    
-    // Also check if we're on the last round and it's revealed
+    // Also check if we're on the last round and it's revealed (safety check)
     if (gameState.currentRound >= gameState.maxRounds && currentRound?.revealed) {
       console.log('🎮 ScoreDisplay: last round revealed, showing GameFinished')
       return <GameFinished gameState={gameState} />
