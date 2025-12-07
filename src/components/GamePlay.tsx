@@ -393,7 +393,8 @@ function GameFinished({ gameState }: { gameState: GameRoom }) {
         cols
           .map(val => {
             const s = String(val ?? '')
-            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+            // Always quote CSV values to handle commas, quotes, and newlines properly
+            return `"${s.replace(/"/g, '""')}"`
           })
           .join(',')
       )

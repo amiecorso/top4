@@ -15,7 +15,8 @@ export function Toast({ message, onDismiss, duration = 10000 }: ToastProps) {
     }, duration)
 
     return () => clearTimeout(timer)
-  }, [duration, onDismiss])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration]) // Only depend on duration, not onDismiss to avoid resetting timer
 
   return (
     <div className="fixed top-4 right-4 z-50">

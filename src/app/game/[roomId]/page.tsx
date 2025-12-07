@@ -82,20 +82,27 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
   useEffect(() => {
     if (!gameState) return
 
-    // Only show toasts when game is active (not in waiting phase)
-    if (gameState.status === 'waiting') {
-      // Reset player tracking when in waiting phase
-      previousPlayerIdsRef.current = new Set(Object.keys(gameState.players))
+    const currentPlayerIds = new Set(Object.keys(gameState.players))
+    
+    // Initialize previousPlayerIdsRef on first load (don't show toast for initial players)
+    if (previousPlayerIdsRef.current.size === 0) {
+      previousPlayerIdsRef.current = currentPlayerIds
       return
     }
 
-    const currentPlayerIds = new Set(Object.keys(gameState.players))
+    // Only show toasts when game is active (not in waiting phase)
+    if (gameState.status === 'waiting') {
+      // Reset player tracking when in waiting phase
+      previousPlayerIdsRef.current = currentPlayerIds
+      return
+    }
+
     const previousPlayerIds = previousPlayerIdsRef.current
 
     // Find new players (in current but not in previous)
     const newPlayerIds = Array.from(currentPlayerIds).filter(id => !previousPlayerIds.has(id))
 
-    if (newPlayerIds.length > 0) {
+    if (newPlayerIds.length > 0 && playerId) {
       // Filter out the current player - they know they joined, no need to show toast to them
       const otherNewPlayerIds = newPlayerIds.filter(id => id !== playerId)
       
@@ -112,11 +119,12 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
           setToastMessage(message)
         }
       }
+      // If current player is the only new player, don't show toast
     }
 
     // Update previous player IDs
     previousPlayerIdsRef.current = currentPlayerIds
-  }, [gameState])
+  }, [gameState, playerId])
 
   const handleFirstRoundTransitionComplete = () => {
     setShowFirstRoundTransition(false)

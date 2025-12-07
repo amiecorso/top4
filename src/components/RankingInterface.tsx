@@ -308,7 +308,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
       </h3>
 
       {/* Round timer */}
-      {(manualTimerActive || (durationSeconds && durationSeconds > 0)) && (
+      {(manualTimerActive || (durationSeconds > 0)) && (
       <div className={`mb-4 flex items-center justify-center ${countdown <= 10 ? 'animate-pulse' : ''}`}>
         <div className="w-full md:w-2/3">
           <div className="flex items-center justify-between mb-1">
