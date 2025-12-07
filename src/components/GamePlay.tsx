@@ -79,7 +79,9 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
   const currentRound = gameState.rounds[gameState.currentRound - 1]
   const isCurrentPlayer = currentPlayer.id === currentRound?.currentPlayer
   const hasCommitted = currentRound?.committed.includes(currentPlayer.id) || false
-  const allCommitted = currentRound && currentRound.committed.length === Object.keys(gameState.players).length
+  // Only count players who were present when the round started
+  const playersAtRoundStart = currentRound?.playersAtStart || Object.keys(gameState.players) // Fallback for backwards compatibility
+  const allCommitted = currentRound && currentRound.committed.length === playersAtRoundStart.length
   const isRevealed = currentRound?.revealed || false
 
   // Force refresh when status changes to finished
@@ -226,7 +228,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             ) : null}
 
             <div className="mt-4 text-sm text-slate-600">
-              {currentRound.committed.length} of {Object.keys(gameState.players).length} players have submitted their rankings
+              {currentRound.committed.length} of {playersAtRoundStart.length} players have submitted their rankings
             </div>
 
             {allCommitted && (
@@ -241,38 +243,67 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             <div className="mt-8 border-t pt-6">
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                 <div className="text-center mb-3">
-                  <h3 className="text-lg font-semibold text-amber-900">Host Timer Controls</h3>
+                  <h3 className="text-lg font-semibold text-amber-900">Host Controls</h3>
                 </div>
-                <div className="flex gap-3 justify-center">
-                  {gameState.roundDurationSeconds === 0 && !currentRound.manualTimerEndTime && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-3 justify-center">
+                    {gameState.roundDurationSeconds === 0 && !currentRound.manualTimerEndTime && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await fetch(`/api/game/${roomId}/manual-timer`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ playerId: currentPlayer.id, action: 'start' }),
+                            })
+                            if (refreshGameState) refreshGameState()
+                          } catch (error) {
+                            console.error('Failed to start timer:', error)
+                          }
+                        }}
+                        className="btn-primary"
+                      >
+                        Start 20 Second Countdown
+                      </button>
+                    )}
+                    {(gameState.roundDurationSeconds > 0 || currentRound.manualTimerEndTime) && (
+                      <AddTimeButton
+                        roomId={roomId}
+                        playerId={currentPlayer.id}
+                        currentRound={currentRound}
+                        roundDurationSeconds={gameState.roundDurationSeconds}
+                        currentCountdown={currentCountdown}
+                        refreshGameState={refreshGameState}
+                      />
+                    )}
+                  </div>
+                  <div className="border-t border-amber-300 pt-3 mt-3">
                     <button
                       onClick={async () => {
                         try {
-                          await fetch(`/api/game/${roomId}/manual-timer`, {
+                          const response = await fetch(`/api/game/${roomId}/add-round`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ playerId: currentPlayer.id, action: 'start' }),
+                            body: JSON.stringify({ playerId: currentPlayer.id }),
                           })
-                          if (refreshGameState) refreshGameState()
+                          if (response.ok) {
+                            if (refreshGameState) refreshGameState()
+                          } else {
+                            const data = await response.json()
+                            console.error('Failed to add round:', data.error)
+                          }
                         } catch (error) {
-                          console.error('Failed to start timer:', error)
+                          console.error('Failed to add round:', error)
                         }
                       }}
-                      className="btn-primary"
+                      className="btn-success w-full"
                     >
-                      Start 20 Second Countdown
+                      Add Round (+4 prompts)
                     </button>
-                  )}
-                  {(gameState.roundDurationSeconds > 0 || currentRound.manualTimerEndTime) && (
-                    <AddTimeButton
-                      roomId={roomId}
-                      playerId={currentPlayer.id}
-                      currentRound={currentRound}
-                      roundDurationSeconds={gameState.roundDurationSeconds}
-                      currentCountdown={currentCountdown}
-                      refreshGameState={refreshGameState}
-                    />
-                  )}
+                    <p className="text-xs text-amber-700 mt-2 text-center">
+                      Round {gameState.currentRound} of {gameState.maxRounds}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

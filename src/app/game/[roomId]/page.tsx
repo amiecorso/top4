@@ -7,6 +7,7 @@ import { GameLobby } from '@/components/GameLobby'
 import { GamePlay } from '@/components/GamePlay'
 import { PromptSubmission } from '@/components/PromptSubmission'
 import { RoundTransition } from '@/components/RoundTransition'
+import { WaitingToJoin } from '@/components/WaitingToJoin'
 
 export default function GameRoom({ params }: { params: { roomId: string } }) {
   const searchParams = useSearchParams()
@@ -112,6 +113,17 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
     )
   }
 
+  // Check if player joined mid-round and should wait
+  // Only wait if: round is in progress, not revealed, player wasn't present when round started, and player hasn't committed
+  const currentRound = gameState.rounds[gameState.currentRound - 1]
+  const wasPlayerPresentAtRoundStart = currentRound?.playersAtStart?.includes(playerId) ?? true // Default to true for backwards compatibility
+  const isWaitingToJoin = 
+    gameState.status === 'playing' &&
+    currentRound &&
+    !currentRound.revealed &&
+    !wasPlayerPresentAtRoundStart && // Player joined after round started
+    !currentRound.committed.includes(playerId) // Player hasn't committed yet
+
   return (
     <div className={`min-h-screen ${gameState.status === 'finished' ? '' : 'bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50'}`}>
       {showFirstRoundTransition && (
@@ -120,7 +132,12 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
           onComplete={handleFirstRoundTransitionComplete}
         />
       )}
-      {gameState.status === 'waiting' ? (
+      {isWaitingToJoin ? (
+        <WaitingToJoin
+          gameState={gameState}
+          currentPlayer={currentPlayer}
+        />
+      ) : gameState.status === 'waiting' ? (
         <GameLobby
           gameState={gameState}
           currentPlayer={currentPlayer}

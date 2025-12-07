@@ -16,6 +16,7 @@ export interface GameRound {
   voided?: boolean; // Round voided due to turn-taker timeout
   readyForNextRound?: string[]; // Players who are ready for the next round
   manualTimerEndTime?: number; // Timestamp (ms) when manual timer expires (set by host)
+  playersAtStart?: string[]; // Player IDs present when round started (to distinguish late joiners)
 }
 
 export interface GameRoom {

@@ -273,11 +273,18 @@ export async function getGameRoomByCode(code: string): Promise<GameRoom | null> 
   return null
 }
 
-export async function joinGameRoom(roomId: string, playerName: string): Promise<Player | null> {
+export async function joinGameRoom(roomId: string, playerName: string, gameStatus?: string): Promise<Player | null> {
   return await withRoomLock(roomId, async () => {
     const games = await loadGames()
     const room = games.get(roomId)
-    if (!room || room.status !== 'waiting') {
+    if (!room) {
+      return null
+    }
+
+    // Allow joining if game is waiting, prompt_submission, or playing
+    // Don't allow joining finished games
+    const status = gameStatus || room.status
+    if (status === 'finished') {
       return null
     }
 
@@ -485,7 +492,8 @@ export async function startNewRound(roomId: string): Promise<GameRound | null> {
       committed: [],
       revealed: false,
       scores: {},
-      readyForNextRound: []
+      readyForNextRound: [],
+      playersAtStart: Object.keys(room.players) // Track which players were present when round started
     }
 
     console.log('Created round with ideas:', selectedIdeas)
@@ -520,7 +528,8 @@ function createAndAppendRound(room: GameRoom): GameRound {
     revealed: false,
     scores: {},
     readyForNextRound: [],
-    manualTimerEndTime: undefined
+    manualTimerEndTime: undefined,
+    playersAtStart: Object.keys(room.players) // Track which players were present when round started
   }
   room.rounds.push(round)
   return round
@@ -562,8 +571,10 @@ export async function canRevealRound(roomId: string): Promise<boolean> {
   const currentRound = room.rounds[room.currentRound - 1]
   if (!currentRound) return false
 
-  const totalPlayers = Object.keys(room.players).length
-  return currentRound.committed.length === totalPlayers
+  // Only count players who were present when the round started
+  const playersAtRoundStart = currentRound.playersAtStart || Object.keys(room.players) // Fallback for backwards compatibility
+  const expectedCommits = playersAtRoundStart.length
+  return currentRound.committed.length === expectedCommits
 }
 
 export async function calculateScores(roomId: string): Promise<Record<string, number>> {
@@ -720,6 +731,63 @@ export async function voidCurrentRound(roomId: string): Promise<boolean> {
 
     games.set(roomId, room)
     await saveGames(games)
+    return true
+  })
+}
+
+/**
+ * Add a round to the game and add 4 prompts from the selected categories to the prompt pool.
+ * Only the host can add rounds.
+ */
+export async function addRound(roomId: string, hostPlayerId: string): Promise<boolean> {
+  return await withRoomLock(roomId, async () => {
+    const games = await loadGames()
+    const room = games.get(roomId)
+    if (!room) return false
+
+    // Verify caller is the host
+    if (room.host !== hostPlayerId) {
+      return false
+    }
+
+    // Don't allow adding rounds if game is finished
+    if (room.status === 'finished') {
+      return false
+    }
+
+    // Increment maxRounds
+    room.maxRounds += 1
+
+    // Get available prompts from selected categories
+    const categoryPrompts = getPromptsByTags(room.selectedCategories)
+    
+    // Filter out prompts that are already in the ideas pool or usedIdeas
+    const existingPrompts = new Set([...room.ideas, ...room.usedIdeas])
+    const availablePrompts = categoryPrompts.filter(p => !existingPrompts.has(p))
+    
+    // Shuffle and select 4 prompts
+    const shuffled = [...availablePrompts].sort(() => Math.random() - 0.5)
+    const newPrompts = shuffled.slice(0, 4)
+
+    // If we don't have enough unique prompts, we can reuse some (they'll be shuffled anyway)
+    if (newPrompts.length < 4) {
+      const allCategoryPrompts = [...categoryPrompts].sort(() => Math.random() - 0.5)
+      let added = 0
+      for (const prompt of allCategoryPrompts) {
+        if (!newPrompts.includes(prompt)) {
+          newPrompts.push(prompt)
+          added++
+          if (added + newPrompts.length >= 4) break
+        }
+      }
+    }
+
+    // Add the new prompts to the ideas pool
+    room.ideas.push(...newPrompts.slice(0, 4))
+
+    games.set(roomId, room)
+    await saveGames(games)
+    console.log(`Added round ${room.maxRounds} and ${newPrompts.slice(0, 4).length} prompts to pool`)
     return true
   })
 }

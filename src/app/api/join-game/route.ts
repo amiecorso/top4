@@ -14,8 +14,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 })
     }
 
-    if (room.status !== 'waiting') {
-      return NextResponse.json({ error: 'Game has already started' }, { status: 400 })
+    // Allow joining games that are waiting, prompt_submission, or playing
+    // Don't allow joining finished games
+    if (room.status === 'finished') {
+      return NextResponse.json({ error: 'Game has already finished' }, { status: 400 })
     }
 
     // Duplicate-name check (case-insensitive)
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const player = await joinGameRoom(room.id, playerName.trim())
+    const player = await joinGameRoom(room.id, playerName.trim(), room.status)
     if (!player) {
       return NextResponse.json({ error: 'Failed to join game' }, { status: 400 })
     }
