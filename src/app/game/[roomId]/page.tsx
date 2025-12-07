@@ -8,6 +8,7 @@ import { GamePlay } from '@/components/GamePlay'
 import { PromptSubmission } from '@/components/PromptSubmission'
 import { RoundTransition } from '@/components/RoundTransition'
 import { WaitingToJoin } from '@/components/WaitingToJoin'
+import { Toast } from '@/components/Toast'
 
 export default function GameRoom({ params }: { params: { roomId: string } }) {
   const searchParams = useSearchParams()
@@ -16,6 +17,8 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
   const [showFirstRoundTransition, setShowFirstRoundTransition] = useState(false)
   const previousStatusRef = useRef<string | null>(null)
   const hasShownFirstTransitionRef = useRef(false)
+  const previousPlayerIdsRef = useRef<Set<string>>(new Set())
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   useEffect(() => {
     const pid = searchParams?.get('playerId')
@@ -75,6 +78,46 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
     previousStatusRef.current = currentStatus
   }, [gameState?.status, gameState?.currentRound, gameState?.rounds.length])
 
+  // Detect new players joining mid-game
+  useEffect(() => {
+    if (!gameState) return
+
+    // Only show toasts when game is active (not in waiting phase)
+    if (gameState.status === 'waiting') {
+      // Reset player tracking when in waiting phase
+      previousPlayerIdsRef.current = new Set(Object.keys(gameState.players))
+      return
+    }
+
+    const currentPlayerIds = new Set(Object.keys(gameState.players))
+    const previousPlayerIds = previousPlayerIdsRef.current
+
+    // Find new players (in current but not in previous)
+    const newPlayerIds = Array.from(currentPlayerIds).filter(id => !previousPlayerIds.has(id))
+
+    if (newPlayerIds.length > 0) {
+      // Filter out the current player - they know they joined, no need to show toast to them
+      const otherNewPlayerIds = newPlayerIds.filter(id => id !== playerId)
+      
+      if (otherNewPlayerIds.length > 0) {
+        // Get names of new players (excluding current player)
+        const newPlayerNames = otherNewPlayerIds
+          .map(id => gameState.players[id]?.name)
+          .filter(Boolean) as string[]
+
+        if (newPlayerNames.length > 0) {
+          const message = newPlayerNames.length === 1
+            ? `${newPlayerNames[0]} joined the game`
+            : `${newPlayerNames.join(', ')} joined the game`
+          setToastMessage(message)
+        }
+      }
+    }
+
+    // Update previous player IDs
+    previousPlayerIdsRef.current = currentPlayerIds
+  }, [gameState])
+
   const handleFirstRoundTransitionComplete = () => {
     setShowFirstRoundTransition(false)
   }
@@ -114,18 +157,23 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
   }
 
   // Check if player joined mid-round and should wait
-  // Only wait if: round is in progress, not revealed, player wasn't present when round started, and player hasn't committed
+  // If player wasn't present when round started, they wait until round is revealed
   const currentRound = gameState.rounds[gameState.currentRound - 1]
   const wasPlayerPresentAtRoundStart = currentRound?.playersAtStart?.includes(playerId) ?? true // Default to true for backwards compatibility
   const isWaitingToJoin = 
     gameState.status === 'playing' &&
     currentRound &&
     !currentRound.revealed &&
-    !wasPlayerPresentAtRoundStart && // Player joined after round started
-    !currentRound.committed.includes(playerId) // Player hasn't committed yet
+    !wasPlayerPresentAtRoundStart // Player joined after round started
 
   return (
     <div className={`min-h-screen ${gameState.status === 'finished' ? '' : 'bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50'}`}>
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          onDismiss={() => setToastMessage(null)}
+        />
+      )}
       {showFirstRoundTransition && (
         <RoundTransition
           roundNumber={1}

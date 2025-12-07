@@ -17,6 +17,7 @@ export interface GameRound {
   readyForNextRound?: string[]; // Players who are ready for the next round
   manualTimerEndTime?: number; // Timestamp (ms) when manual timer expires (set by host)
   playersAtStart?: string[]; // Player IDs present when round started (to distinguish late joiners)
+  roundStartTime?: number; // Timestamp (ms) when round started (for timer fairness for late joiners)
 }
 
 export interface GameRoom {

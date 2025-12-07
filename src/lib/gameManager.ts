@@ -493,7 +493,8 @@ export async function startNewRound(roomId: string): Promise<GameRound | null> {
       revealed: false,
       scores: {},
       readyForNextRound: [],
-      playersAtStart: Object.keys(room.players) // Track which players were present when round started
+      playersAtStart: Object.keys(room.players), // Track which players were present when round started
+      roundStartTime: Date.now() // Track when round started for timer fairness
     }
 
     console.log('Created round with ideas:', selectedIdeas)
@@ -529,7 +530,8 @@ function createAndAppendRound(room: GameRoom): GameRound {
     scores: {},
     readyForNextRound: [],
     manualTimerEndTime: undefined,
-    playersAtStart: Object.keys(room.players) // Track which players were present when round started
+    playersAtStart: Object.keys(room.players), // Track which players were present when round started
+    roundStartTime: Date.now() // Track when round started for timer fairness
   }
   room.rounds.push(round)
   return round
@@ -761,33 +763,27 @@ export async function addRound(roomId: string, hostPlayerId: string): Promise<bo
     // Get available prompts from selected categories
     const categoryPrompts = getPromptsByTags(room.selectedCategories)
     
-    // Filter out prompts that are already in the ideas pool or usedIdeas
-    const existingPrompts = new Set([...room.ideas, ...room.usedIdeas])
-    const availablePrompts = categoryPrompts.filter(p => !existingPrompts.has(p))
+    // Filter out prompts that are already in the ideas pool (not checking usedIdeas since those can be reused)
+    const existingPromptsInPool = new Set(room.ideas)
+    const freshPrompts = categoryPrompts.filter(p => !existingPromptsInPool.has(p))
     
-    // Shuffle and select 4 prompts
-    const shuffled = [...availablePrompts].sort(() => Math.random() - 0.5)
-    const newPrompts = shuffled.slice(0, 4)
-
-    // If we don't have enough unique prompts, we can reuse some (they'll be shuffled anyway)
-    if (newPrompts.length < 4) {
-      const allCategoryPrompts = [...categoryPrompts].sort(() => Math.random() - 0.5)
-      let added = 0
-      for (const prompt of allCategoryPrompts) {
-        if (!newPrompts.includes(prompt)) {
-          newPrompts.push(prompt)
-          added++
-          if (added + newPrompts.length >= 4) break
-        }
-      }
+    // Only add fresh prompts if we have at least 4 available
+    // If not enough fresh prompts, don't expand the pool - rounds will reuse prompts when needed
+    if (freshPrompts.length >= 4) {
+      // Shuffle and select 4 fresh prompts
+      const shuffled = [...freshPrompts].sort(() => Math.random() - 0.5)
+      const newPrompts = shuffled.slice(0, 4)
+      
+      // Add the new prompts to the ideas pool
+      room.ideas.push(...newPrompts)
+      console.log(`Added ${newPrompts.length} fresh prompts to pool (total pool size: ${room.ideas.length})`)
+    } else {
+      console.log(`Not enough fresh prompts available (${freshPrompts.length} available, need 4). Pool not expanded. Rounds will reuse prompts when needed.`)
     }
-
-    // Add the new prompts to the ideas pool
-    room.ideas.push(...newPrompts.slice(0, 4))
 
     games.set(roomId, room)
     await saveGames(games)
-    console.log(`Added round ${room.maxRounds} and ${newPrompts.slice(0, 4).length} prompts to pool`)
+    console.log(`Added round ${room.maxRounds}`)
     return true
   })
 }

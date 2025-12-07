@@ -134,7 +134,7 @@ export default function Home() {
               <input
                 type="text"
                 value={hostName}
-                onChange={(e) => setHostName(e.target.value)}
+                onChange={(e) => setHostName(e.target.value.toUpperCase())}
                 placeholder="Enter your name"
                 className="input"
                 required
@@ -236,7 +236,7 @@ export default function Home() {
               <input
                 type="text"
                 value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
+                onChange={(e) => setPlayerName(e.target.value.toUpperCase())}
                 placeholder="Enter your name"
                 className="input"
                 required

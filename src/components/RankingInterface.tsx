@@ -11,12 +11,27 @@ interface RankingInterfaceProps {
   roundNumber: number
   durationSeconds: number
   manualTimerEndTime?: number // Timestamp when manual timer expires
+  roundStartTime?: number // Timestamp when round started (for timer fairness for late joiners)
   onCountdownChange?: (countdown: number) => void // Callback to notify parent of countdown changes
 }
 
-export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId, roundNumber, durationSeconds, manualTimerEndTime, onCountdownChange }: RankingInterfaceProps) {
+export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId, playerId, roundNumber, durationSeconds, manualTimerEndTime, roundStartTime, onCountdownChange }: RankingInterfaceProps) {
   const [ranking, setRanking] = useState<number[]>([0, 0, 0, 0])
-  const [countdown, setCountdown] = useState<number>(durationSeconds)
+  // Calculate initial countdown: if roundStartTime exists and no manual timer, calculate remaining time
+  // Otherwise use full durationSeconds
+  const getInitialCountdown = () => {
+    if (manualTimerEndTime) {
+      const remaining = Math.max(0, Math.ceil((manualTimerEndTime - Date.now()) / 1000))
+      return remaining > 0 ? remaining : durationSeconds
+    }
+    if (roundStartTime && durationSeconds > 0) {
+      const elapsed = Math.floor((Date.now() - roundStartTime) / 1000)
+      const remaining = Math.max(0, durationSeconds - elapsed)
+      return remaining
+    }
+    return durationSeconds
+  }
+  const [countdown, setCountdown] = useState<number>(getInitialCountdown())
   const [manualTimerActive, setManualTimerActive] = useState(false)
   const [initialManualTimerDuration, setInitialManualTimerDuration] = useState<number>(20)
   const [submitting, setSubmitting] = useState(false)
@@ -148,10 +163,10 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
   useEffect(() => {
     setRanking([0, 0, 0, 0])
     rankingRef.current = [0, 0, 0, 0]
-    setCountdown(durationSeconds)
+    setCountdown(getInitialCountdown())
     setManualTimerActive(false)
     setInitialManualTimerDuration(20)
-  }, [roundNumber, durationSeconds])
+  }, [roundNumber, durationSeconds, manualTimerEndTime, roundStartTime])
 
   // Check for manual timer and update countdown
   useEffect(() => {
@@ -182,12 +197,18 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
     } else {
       setManualTimerActive(false)
       setInitialManualTimerDuration(20) // Reset to default 20 seconds
-      // Reset to durationSeconds if no manual timer
+      // Calculate remaining time if roundStartTime exists, otherwise use full duration
       if (durationSeconds > 0 && !hasCommitted) {
-        setCountdown(durationSeconds)
+        if (roundStartTime) {
+          const elapsed = Math.floor((Date.now() - roundStartTime) / 1000)
+          const remaining = Math.max(0, durationSeconds - elapsed)
+          setCountdown(remaining)
+        } else {
+          setCountdown(durationSeconds)
+        }
       }
     }
-  }, [manualTimerEndTime, durationSeconds, hasCommitted, initialManualTimerDuration])
+  }, [manualTimerEndTime, durationSeconds, hasCommitted, initialManualTimerDuration, roundStartTime])
 
   // Sync manual timer countdown every second
   useEffect(() => {
@@ -242,7 +263,12 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
-        if (prev <= 1) {
+        // Recalculate remaining time if roundStartTime exists (for late joiners)
+        const remaining = roundStartTime 
+          ? Math.max(0, durationSeconds - Math.floor((Date.now() - roundStartTime) / 1000))
+          : prev - 1
+        
+        if (remaining <= 0) {
           clearInterval(timer)
           // Timeout behavior:
           // - If current player (turn-taker) times out, void the round (no points, -1 to them)
@@ -256,12 +282,12 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
           }
           return 0
         }
-        return prev - 1
+        return remaining
       })
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [hasCommitted, submitting, roundNumber, durationSeconds, manualTimerActive, isCurrentPlayer, roomId]) // reset when new round (roundNumber) or commit state changes
+  }, [hasCommitted, submitting, roundNumber, durationSeconds, roundStartTime, manualTimerActive, isCurrentPlayer, roomId]) // reset when new round (roundNumber) or commit state changes
 
 
   // No sound on low-time warning; visual pulse only

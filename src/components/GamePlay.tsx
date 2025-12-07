@@ -216,6 +216,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
             roundNumber={gameState.currentRound}
             durationSeconds={gameState.roundDurationSeconds}
             manualTimerEndTime={currentRound.manualTimerEndTime}
+            roundStartTime={currentRound.roundStartTime}
             onCountdownChange={setCurrentCountdown}
           />
 
