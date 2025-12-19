@@ -293,12 +293,7 @@ export function RankingInterface({ ideas, isCurrentPlayer, hasCommitted, roomId,
   // No sound on low-time warning; visual pulse only
 
   if (hasCommitted) {
-    return (
-      <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center">
-        <div className="text-emerald-800 font-semibold">✓ Ranking submitted successfully!</div>
-        <div className="text-emerald-600 mt-2">Waiting for other players...</div>
-      </div>
-    )
+    return null
   }
 
   return (

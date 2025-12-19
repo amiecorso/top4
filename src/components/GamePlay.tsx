@@ -5,7 +5,7 @@ import { GameRoom, Player, GameRound } from '@/types/game'
 import { RankingInterface } from './RankingInterface'
 import { ScoreDisplay } from './ScoreDisplay'
 import { RoundTransition } from './RoundTransition'
-import { Confetti } from './Confetti'
+ 
 
 function AddTimeButton({ 
   roomId, 
@@ -109,23 +109,58 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
     previousRoundRef.current = gameState.currentRound
   }, [gameState.currentRound, isRevealed])
 
+  // Keep a countdown visible for hosts who have already submitted while waiting for others
+  useEffect(() => {
+    const computeRemaining = (): number | null => {
+      // Manual timer takes precedence
+      if (currentRound?.manualTimerEndTime) {
+        const remaining = Math.ceil((currentRound.manualTimerEndTime - Date.now()) / 1000)
+        return Math.max(0, remaining)
+      }
+      // Fallback to configured round duration with roundStartTime
+      if (gameState.roundDurationSeconds > 0 && currentRound?.roundStartTime) {
+        const elapsed = Math.floor((Date.now() - currentRound.roundStartTime) / 1000)
+        return Math.max(0, gameState.roundDurationSeconds - elapsed)
+      }
+      return null
+    }
+    // Only track while waiting (not revealed) and after the player has committed
+    if (!isRevealed && hasCommitted) {
+      const initial = computeRemaining()
+      if (initial !== null) {
+        setCurrentCountdown(initial)
+      }
+      const id = setInterval(() => {
+        const calculated = computeRemaining()
+        if (calculated !== null) {
+          setCurrentCountdown(calculated)
+        } else {
+          // If we don't have authoritative timer data, continue decrementing locally
+          setCurrentCountdown(prev => {
+            if (prev === null) return prev
+            return Math.max(0, prev - 1)
+          })
+        }
+      }, 1000)
+      return () => clearInterval(id)
+    }
+    return
+  }, [
+    hasCommitted,
+    isRevealed,
+    gameState.roundDurationSeconds,
+    currentRound?.manualTimerEndTime,
+    currentRound?.roundStartTime
+  ])
+
   // NOW we can do conditional returns after all hooks are called
   // Check for finished status first, before accessing currentRound
-  if (gameState.status === 'finished') {
-    console.log('🎮 Game status is finished, showing GameFinished')
-    return <GameFinished gameState={gameState} />
-  }
+  // When the game is finished, keep users on the round scoring screen
+  // so they can see the final round's details and leaderboard.
 
   // If we've reached or exceeded the max rounds, the game should be finished
   // This is a safety check in case status hasn't updated yet
-  if (gameState.currentRound >= gameState.maxRounds) {
-    // Check if we're on the last round's score screen - if so, game is finished
-    const lastRound = gameState.rounds[gameState.maxRounds - 1]
-    if (lastRound?.revealed) {
-      console.log('🎮 Last round revealed and currentRound >= maxRounds, showing GameFinished')
-      return <GameFinished gameState={gameState} />
-    }
-  }
+  // but we still render the ScoreDisplay to show the final round results.
 
   const handleTransitionComplete = () => {
     setShowTransition(false)
@@ -143,12 +178,6 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
   }
 
   if (isRevealed) {
-    // Also check if we're on the last round and it's revealed (safety check)
-    if (gameState.currentRound >= gameState.maxRounds && currentRound?.revealed) {
-      console.log('🎮 ScoreDisplay: last round revealed, showing GameFinished')
-      return <GameFinished gameState={gameState} />
-    }
-    
     return (
       <>
         {showTransition && transitionRound && (
@@ -197,14 +226,16 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
           </div>
 
           {/* Instructions */}
-          <div className="p-4 rounded-xl mb-6 bg-gradient-to-r from-blue-50 via-sky-50 to-cyan-50 border border-blue-100">
-            <p className="text-blue-800">
-              {isCurrentPlayer
-                ? "Rank these ideas from 1 (best) to 4 (worst) according to your personal preference."
-                : `Try to predict how ${gameState.players[currentRound.currentPlayer]?.name} will rank these ideas.`
-              }
-            </p>
-          </div>
+          {!hasCommitted && (
+            <div className="p-4 rounded-xl mb-6 bg-gradient-to-r from-blue-50 via-sky-50 to-cyan-50 border border-blue-100">
+              <p className="text-blue-800">
+                {isCurrentPlayer
+                  ? "Rank these ideas from 1 (best) to 4 (worst) according to your personal preference."
+                  : `Try to predict how ${gameState.players[currentRound.currentPlayer]?.name} will rank these ideas.`
+                }
+              </p>
+            </div>
+          )}
 
           {/* Ranking Interface */}
           <RankingInterface
@@ -223,8 +254,22 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
           {/* Status */}
           <div className="mt-6 text-center">
             {hasCommitted ? (
-              <div className="text-emerald-700 font-medium">
-                ✓ Your ranking submitted! Waiting for others...
+              <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6">
+                <div className="text-emerald-800 font-semibold">
+                  ✓ Your ranking submitted! Waiting for others...
+                </div>
+                {currentCountdown !== null && (
+                  <div className="mt-2 text-sm">
+                    <span className="text-slate-700 font-medium">Time remaining:</span>{' '}
+                    <span className={`${currentCountdown <= 10 ? 'text-orange-700 font-semibold' : 'text-blue-700 font-semibold'}`}>
+                      {Math.floor(currentCountdown / 60)
+                        .toString()
+                        .padStart(1, '0')}
+                      :
+                      {(currentCountdown % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -331,171 +376,4 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
   )
 }
 
-function GameFinished({ gameState }: { gameState: GameRoom }) {
-  const sortedPlayers = getSortedPlayers(gameState)
-  const winner = sortedPlayers[0]
-
-  function getSortedPlayers(gs: GameRoom) {
-    const players = Object.values(gs.players)
-    const rounds = gs.rounds
-    const perfectCounts: Record<string, number> = {}
-    const twoCounts: Record<string, number> = {}
-    const voidedAsTurnTaker: Record<string, number> = {}
-    players.forEach(p => {
-      perfectCounts[p.id] = 0
-      twoCounts[p.id] = 0
-      voidedAsTurnTaker[p.id] = 0
-    })
-    const cumulative: Record<string, number> = {}
-    players.forEach(p => (cumulative[p.id] = 0))
-    rounds.forEach((round, idx) => {
-      if (round.voided) {
-        voidedAsTurnTaker[round.currentPlayer] = (voidedAsTurnTaker[round.currentPlayer] || 0) + 1
-        return
-      }
-      if (!round.playerRanking) return
-      Object.entries(round.scores || {}).forEach(([pid, pts]) => {
-        cumulative[pid] = (cumulative[pid] || 0) + (pts || 0)
-      })
-      Object.entries(round.playerRankings || {}).forEach(([pid, pred]) => {
-        if (pid === round.currentPlayer) return
-        let correct = 0
-        for (let i = 0; i < 4; i++) if (pred[i] === round.playerRanking![i]) correct++
-        if (correct === 4) perfectCounts[pid] += 1
-        if (correct === 2) twoCounts[pid] += 1
-      })
-    })
-    return players.sort((a, b) => {
-      const scoreDiff = (b.score || 0) - (a.score || 0)
-      if (scoreDiff !== 0) return scoreDiff
-      const perfDiff = (perfectCounts[b.id] || 0) - (perfectCounts[a.id] || 0)
-      if (perfDiff !== 0) return perfDiff
-      const twoDiff = (twoCounts[b.id] || 0) - (twoCounts[a.id] || 0)
-      if (twoDiff !== 0) return twoDiff
-      const voidDiff = (voidedAsTurnTaker[a.id] || 0) - (voidedAsTurnTaker[b.id] || 0)
-      if (voidDiff !== 0) return voidDiff
-      return a.name.localeCompare(b.name)
-    })
-  }
-
-  const downloadPromptsCsv = () => {
-    const rows: Array<string> = []
-    const playerPrompts = gameState.playerPrompts || {}
-    for (const [playerId, prompts] of Object.entries(playerPrompts)) {
-      for (const prompt of prompts) {
-        rows.push(prompt)
-      }
-    }
-
-    const header = ['prompt']
-    const csv = [header, ...rows.map(prompt => [prompt])]
-      .map(cols =>
-        cols
-          .map(val => {
-            const s = String(val ?? '')
-            // Always quote CSV values to handle commas, quotes, and newlines properly
-            return `"${s.replace(/"/g, '""')}"`
-          })
-          .join(',')
-      )
-      .join('\n')
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `top4-prompts-${gameState.code}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-sky-900 to-cyan-900 relative overflow-hidden">
-      <Confetti />
-      
-      {/* Animated background circles */}
-      <div className="absolute inset-0 overflow-hidden">
-        {[...Array(20)].map((_, i) => {
-          const size = Math.random() * 200 + 100
-          const left = Math.random() * 100
-          const top = Math.random() * 100
-          const delay = Math.random() * 3
-          const duration = Math.random() * 4 + 3
-          
-          return (
-            <div
-              key={i}
-              className="absolute rounded-full bg-white/10 animate-pulse"
-              style={{
-                width: `${size}px`,
-                height: `${size}px`,
-                left: `${left}%`,
-                top: `${top}%`,
-                animationDelay: `${delay}s`,
-                animationDuration: `${duration}s`,
-              }}
-            />
-          )
-        })}
-      </div>
-
-      <div className="max-w-3xl mx-auto text-center relative z-10 p-8">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12">
-          <h1 className="text-5xl md:text-6xl font-bold text-slate-900 mb-8">Game Over!</h1>
-
-          <div className="mb-10">
-            <div className="inline-block px-8 py-6 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 rounded-2xl shadow-lg mb-4">
-              <div className="text-4xl md:text-5xl font-bold text-slate-900 mb-2">🏆 {winner.name} Wins!</div>
-              <div className="text-2xl md:text-3xl font-semibold text-slate-800">{winner.score} points</div>
-            </div>
-          </div>
-
-          <div className="mb-10">
-            <h2 className="text-2xl md:text-3xl font-bold mb-6 text-slate-800">Final Rankings</h2>
-            <div className="space-y-3">
-              {sortedPlayers.map((player, index) => (
-                <div 
-                  key={player.id} 
-                  className={`flex justify-between items-center px-6 py-4 rounded-xl border-2 ${
-                    index === 0 
-                      ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 shadow-md' 
-                      : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className={`text-2xl font-bold ${index === 0 ? 'text-amber-600' : 'text-slate-600'}`}>
-                      #{index + 1}
-                    </span>
-                    <span className={`text-xl md:text-2xl font-bold ${index === 0 ? 'text-slate-900' : 'text-slate-800'}`}>
-                      {player.name}
-                    </span>
-                  </div>
-                  <span className={`text-2xl md:text-3xl font-bold ${index === 0 ? 'text-amber-600' : 'text-blue-600'}`}>
-                    {player.score}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => window.location.href = '/'}
-              className="btn-primary text-lg px-8 py-4"
-            >
-              Return to Lobby
-            </button>
-            <button
-              onClick={downloadPromptsCsv}
-              className="btn-muted text-lg px-8 py-4"
-            >
-              Download Prompts (CSV)
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
+ 

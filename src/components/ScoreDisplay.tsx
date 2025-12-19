@@ -208,6 +208,30 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
     <div className="min-h-screen p-4">
       <div className="max-w-4xl mx-auto">
         <div className="card-lg">
+          {/* Game Over Banner */}
+          {gameState.currentRound >= gameState.maxRounds && (
+            <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col md:flex-row items-center justify-between">
+              <div className="text-center md:text-left">
+                <div className="text-2xl font-bold text-amber-900">Game Over!</div>
+                <div className="text-lg font-semibold text-amber-800">🏆 {sortPlayersWithTieBreak()[0]?.name} wins</div>
+              </div>
+              <div className="mt-4 md:mt-0 flex gap-3">
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className="btn-primary"
+                >
+                  Return to Lobby
+                </button>
+                <button
+                  onClick={downloadPromptsCsv}
+                  className="btn-muted"
+                >
+                  Download Prompts (CSV)
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-slate-900">
@@ -381,23 +405,7 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
 
           {/* Continue/Ready Buttons */}
           <div className="text-center">
-            {gameState.currentRound >= gameState.maxRounds ? (
-              <div>
-                <div className="text-lg text-slate-600 mb-4">Game Over! Final scores above.</div>
-                <button
-                  onClick={() => window.location.href = '/'}
-                  className="btn-primary"
-                >
-                  Return to Lobby
-                </button>
-                <button
-                  onClick={downloadPromptsCsv}
-                  className="ml-3 btn-muted"
-                >
-                  Download Prompts (CSV)
-                </button>
-              </div>
-            ) : currentPlayer.id === gameState.host ? (
+            {gameState.currentRound >= gameState.maxRounds ? null : currentPlayer.id === gameState.host ? (
               <div>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
                   {isReady ? (
