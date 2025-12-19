@@ -74,6 +74,7 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
   const previousRoundRef = useRef<number>(gameState.currentRound)
   const hasInitializedRef = useRef(false)
   const [currentCountdown, setCurrentCountdown] = useState<number | null>(null)
+  const [finishingRound, setFinishingRound] = useState(false)
 
   // Calculate these before any early returns
   const currentRound = gameState.rounds[gameState.currentRound - 1]
@@ -268,6 +269,39 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
                       :
                       {(currentCountdown % 60).toString().padStart(2, '0')}
                     </span>
+                  </div>
+                )}
+                {currentPlayer.id === gameState.host && !isRevealed && (
+                  <div className="mt-4">
+                    <button
+                      onClick={async () => {
+                        if (finishingRound) return
+                        setFinishingRound(true)
+                        try {
+                          const response = await fetch(`/api/game/${roomId}/force-finish-round`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ playerId: currentPlayer.id }),
+                          })
+                          if (response.ok) {
+                            if (refreshGameState) {
+                              refreshGameState()
+                              setTimeout(() => {
+                                if (refreshGameState) refreshGameState()
+                              }, 400)
+                            }
+                          } else {
+                            setFinishingRound(false)
+                          }
+                        } catch {
+                          setFinishingRound(false)
+                        }
+                      }}
+                      className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={finishingRound}
+                    >
+                      {finishingRound ? 'Finishing…' : 'Finish Round Now'}
+                    </button>
                   </div>
                 )}
               </div>
