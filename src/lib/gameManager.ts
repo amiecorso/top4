@@ -588,15 +588,6 @@ export async function calculateScores(roomId: string): Promise<Record<string, nu
     const currentRound = room.rounds[room.currentRound - 1]
     if (!currentRound || !currentRound.playerRanking) return {}
 
-    // Ensure every non-turn-taker has a prediction entry; fill missing with all-unranked (0s)
-    const allPlayerIds = Object.keys(room.players)
-    for (const playerId of allPlayerIds) {
-      if (playerId === currentRound.currentPlayer) continue
-      if (!currentRound.playerRankings[playerId]) {
-        currentRound.playerRankings[playerId] = [0, 0, 0, 0]
-      }
-    }
-
     const correctRanking = currentRound.playerRanking
     const scores: Record<string, number> = {}
 
@@ -731,28 +722,13 @@ export async function voidCurrentRound(roomId: string): Promise<boolean> {
     const currentRound = room.rounds[room.currentRound - 1]
     if (!currentRound) return false
 
-    // Ensure every non-turn-taker has a prediction entry; fill missing with all-unranked (0s)
-    const allPlayerIds = Object.keys(room.players)
-    for (const playerId of allPlayerIds) {
-      if (playerId === currentRound.currentPlayer) continue
-      if (!currentRound.playerRankings[playerId]) {
-        currentRound.playerRankings[playerId] = [0, 0, 0, 0]
-      }
-    }
-
     const currentPlayerId = currentRound.currentPlayer
     if (room.players[currentPlayerId]) {
       room.players[currentPlayerId].score -= 1
     }
 
     currentRound.revealed = true
-    // Set explicit 0 scores for all predictors (no points awarded on void)
-    const zeroScores: Record<string, number> = {}
-    for (const playerId of allPlayerIds) {
-      if (playerId === currentRound.currentPlayer) continue
-      zeroScores[playerId] = 0
-    }
-    currentRound.scores = zeroScores
+    currentRound.scores = currentRound.scores || {}
     currentRound.voided = true
 
     games.set(roomId, room)

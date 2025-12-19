@@ -281,111 +281,110 @@ export function ScoreDisplay({ gameState, currentPlayer, roomId, refreshGameStat
           {/* Player Predictions and Scores */}
           <div className="mb-8">
             <h2 className="section-title">Player Predictions & Scores</h2>
-            {isVoided && (
-              <div className="p-4 rounded-xl border border-rose-200 bg-rose-50 text-center text-rose-700">
-                Round voided — no predictions scored. Predictions shown for reference.
+            {isVoided ? (
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 text-center text-slate-700">
+                Round voided — no predictions scored.
               </div>
-            )}
-            <div className="space-y-4 mt-4">
-              {Object.entries(currentRound.playerRankings).map(([playerId, prediction]) => {
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(currentRound.playerRankings).map(([playerId, prediction]) => {
                   if (playerId === currentRound.currentPlayer) return null
-                  
-                const player = gameState.players[playerId]
-                const roundScore = currentRound.scores?.[playerId] || 0
-                  
-                return (
-                  <div key={playerId} className="border border-slate-200 rounded-xl p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-2xl font-bold text-slate-900">{player?.name}</h3>
-                      <div className={`text-xl font-bold ${isVoided ? 'text-slate-500' : 'text-blue-600'}`}>
-                        +{roundScore} points
+
+                  const player = gameState.players[playerId]
+                  const roundScore = currentRound.scores?.[playerId] || 0
+
+                  return (
+                    <div key={playerId} className="border border-slate-200 rounded-xl p-4">
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-2xl font-bold text-slate-900">{player?.name}</h3>
+                        <div className="text-xl font-bold text-blue-600">+{roundScore} points</div>
                       </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-4 gap-2">
-                      {(() => {
-                        // Build mapping of rank -> idea data
-                        const rankToIdea: Array<{ ideaIndex: number; predictedRank: number; idea: string; correctRank: number; isUnranked: boolean } | null> = [null, null, null, null]
-                        const unrankedIdeas: Array<{ ideaIndex: number; idea: string; correctRank: number }> = []
-                        
-                        prediction.forEach((predictedRank, ideaIndex) => {
-                          const idea = currentRound.ideas[ideaIndex]
-                          const correctRank = correctRanking[ideaIndex]
+
+                      <div className="grid grid-cols-4 gap-2">
+                        {(() => {
+                          // Build mapping of rank -> idea data
+                          const rankToIdea: Array<{ ideaIndex: number; predictedRank: number; idea: string; correctRank: number; isUnranked: boolean } | null> = [null, null, null, null]
+                          const unrankedIdeas: Array<{ ideaIndex: number; idea: string; correctRank: number }> = []
                           
-                          if (predictedRank === 0) {
-                            unrankedIdeas.push({ ideaIndex, idea, correctRank })
-                          } else {
-                            rankToIdea[predictedRank - 1] = {
-                              ideaIndex,
-                              predictedRank,
-                              idea,
-                              correctRank,
-                              isUnranked: false
+                          prediction.forEach((predictedRank, ideaIndex) => {
+                            const idea = currentRound.ideas[ideaIndex]
+                            const correctRank = correctRanking[ideaIndex]
+                            
+                            if (predictedRank === 0) {
+                              unrankedIdeas.push({ ideaIndex, idea, correctRank })
+                            } else {
+                              rankToIdea[predictedRank - 1] = {
+                                ideaIndex,
+                                predictedRank,
+                                idea,
+                                correctRank,
+                                isUnranked: false
+                              }
+                            }
+                          })
+                          
+                          // Build display array: rank 1, 2, 3, 4, filling unranked positions with unranked items
+                          const displayItems: Array<{ ideaIndex: number; predictedRank: number; idea: string; correctRank: number; isUnranked: boolean }> = []
+                          let unrankedIndex = 0
+                          
+                          for (let rank = 1; rank <= 4; rank++) {
+                            const rankedItem = rankToIdea[rank - 1]
+                            if (rankedItem) {
+                              displayItems.push(rankedItem)
+                            } else if (unrankedIndex < unrankedIdeas.length) {
+                              // Fill with unranked item
+                              const unranked = unrankedIdeas[unrankedIndex]
+                              displayItems.push({
+                                ideaIndex: unranked.ideaIndex,
+                                predictedRank: 0,
+                                idea: unranked.idea,
+                                correctRank: unranked.correctRank,
+                                isUnranked: true
+                              })
+                              unrankedIndex++
                             }
                           }
-                        })
-                        
-                        // Build display array: rank 1, 2, 3, 4, filling unranked positions with unranked items
-                        const displayItems: Array<{ ideaIndex: number; predictedRank: number; idea: string; correctRank: number; isUnranked: boolean }> = []
-                        let unrankedIndex = 0
-                        
-                        for (let rank = 1; rank <= 4; rank++) {
-                          const rankedItem = rankToIdea[rank - 1]
-                          if (rankedItem) {
-                            displayItems.push(rankedItem)
-                          } else if (unrankedIndex < unrankedIdeas.length) {
-                            // Fill with unranked item
-                            const unranked = unrankedIdeas[unrankedIndex]
-                            displayItems.push({
-                              ideaIndex: unranked.ideaIndex,
-                              predictedRank: 0,
-                              idea: unranked.idea,
-                              correctRank: unranked.correctRank,
-                              isUnranked: true
-                            })
-                            unrankedIndex++
-                          }
-                        }
-                        
-                        return displayItems.map(({ ideaIndex, predictedRank, idea, correctRank, isUnranked }) => {
-                          const isCorrect = !isUnranked && predictedRank === correctRank
                           
-                          return (
-                            <div
-                              key={ideaIndex}
-                              className={`p-3 rounded text-center border ${
-                                isUnranked 
-                                  ? 'bg-slate-100 border-slate-300 opacity-60' 
-                                  : isCorrect 
-                                    ? 'bg-emerald-50 border-emerald-500' 
-                                    : 'bg-slate-50 border-slate-200'
-                              }`}
-                            >
-                              <div className={`text-sm font-medium mb-1 ${isUnranked ? 'text-slate-500' : 'text-slate-800'}`}>{idea}</div>
-                              <div className="text-lg font-bold">
-                                {isUnranked ? (
-                                  <span className="text-slate-500 italic">unranked</span>
-                                ) : (
-                                  <>
-                                    <span className={isCorrect ? 'text-emerald-800' : 'text-rose-600'}>#{predictedRank}</span>
-                                    {isCorrect && ' ✓'}
-                                  </>
+                          return displayItems.map(({ ideaIndex, predictedRank, idea, correctRank, isUnranked }) => {
+                            const isCorrect = !isUnranked && predictedRank === correctRank
+
+                            return (
+                              <div
+                                key={ideaIndex}
+                                className={`p-3 rounded text-center border ${
+                                  isUnranked 
+                                    ? 'bg-slate-100 border-slate-300 opacity-60' 
+                                    : isCorrect 
+                                      ? 'bg-emerald-50 border-emerald-500' 
+                                      : 'bg-slate-50 border-slate-200'
+                                }`}
+                              >
+                                <div className={`text-sm font-medium mb-1 ${isUnranked ? 'text-slate-500' : 'text-slate-800'}`}>{idea}</div>
+                                <div className="text-lg font-bold">
+                                  {isUnranked ? (
+                                    <span className="text-slate-500 italic">unranked</span>
+                                  ) : (
+                                    <>
+                                      <span className={isCorrect ? 'text-emerald-800' : 'text-rose-600'}>#{predictedRank}</span>
+                                      {isCorrect && ' ✓'}
+                                    </>
+                                  )}
+                                </div>
+                                {!isCorrect && (
+                                  <div className={`text-xs ${isUnranked ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    (was #{correctRank})
+                                  </div>
                                 )}
                               </div>
-                              {!isCorrect && (
-                                <div className={`text-xs ${isUnranked ? 'text-slate-400' : 'text-slate-500'}`}>
-                                  (was #{correctRank})
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })
-                      })()}
+                            )
+                          })
+                        })()}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Updated Leaderboard */}
