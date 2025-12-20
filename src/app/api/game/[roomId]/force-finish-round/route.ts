@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getGameRoom, calculateScores, voidCurrentRound } from '@/lib/gameManager'
+import { getGameRoom, calculateScores, voidCurrentRound, updateGameRoom } from '@/lib/gameManager'
 
 export async function POST(
   request: NextRequest,
@@ -28,6 +28,16 @@ export async function POST(
     if (currentRound.revealed) {
       return NextResponse.json({ success: true, alreadyRevealed: true })
     }
+
+    // Ensure every non-turn-taker has a prediction entry; fill missing with all-unranked (0s)
+    const allPlayerIds = Object.keys(room.players)
+    for (const pid of allPlayerIds) {
+      if (pid === currentRound.currentPlayer) continue
+      if (!currentRound.playerRankings[pid]) {
+        currentRound.playerRankings[pid] = [0, 0, 0, 0]
+      }
+    }
+    await updateGameRoom(room)
 
     if (!currentRound.playerRanking) {
       // If turn-taker hasn't submitted, void the round immediately

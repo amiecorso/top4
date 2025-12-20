@@ -40,7 +40,8 @@ export function useGameState(roomId: string | null, playerId: string | null) {
     maxRounds: number = 5,
     selectedCategories: string[] = ['kidFriendly'],
     newPromptPercentage: number = 0,
-    roundDurationSeconds: number = 60
+    roundDurationSeconds: number = 60,
+    categoryWeights?: Record<string, number>
   ) => {
     setLoading(true)
     try {
@@ -49,7 +50,7 @@ export function useGameState(roomId: string | null, playerId: string | null) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ hostName, maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds }),
+        body: JSON.stringify({ hostName, maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds, categoryWeights }),
       })
 
       const data = await response.json()

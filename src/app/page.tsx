@@ -11,6 +11,7 @@ export default function Home() {
   const [gameCode, setGameCode] = useState('')
   const [maxRounds, setMaxRounds] = useState(5)
   const [selectedCategories, setSelectedCategories] = useState<PromptCategoryKey[]>(['kidFriendly'])
+  const [categoryWeights, setCategoryWeights] = useState<Record<PromptCategoryKey, number>>({ kidFriendly: 100 } as Record<PromptCategoryKey, number>)
   const [newPromptPercentage, setNewPromptPercentage] = useState(50)
   const [roundDurationSeconds, setRoundDurationSeconds] = useState<number>(60) // 0 = no timer
   const [error, setError] = useState('')
@@ -39,6 +40,22 @@ export default function Home() {
     }
   }, [])
 
+  // When selected categories change, reset to equal split (sum 100)
+  useEffect(() => {
+    if (selectedCategories.length === 0) {
+      setCategoryWeights({} as Record<PromptCategoryKey, number>)
+      return
+    }
+    setCategoryWeights(() => {
+      const next: Record<PromptCategoryKey, number> = {} as any
+      const even = Math.floor(100 / selectedCategories.length)
+      for (const cat of selectedCategories) next[cat] = even
+      const rem = 100 - even * selectedCategories.length
+      if (rem > 0) next[selectedCategories[0]] = next[selectedCategories[0]] + rem
+      return next
+    })
+  }, [selectedCategories])
+
   const handleTitleClick = () => {
     const newCount = titleClickCount + 1
     setTitleClickCount(newCount)
@@ -63,7 +80,7 @@ export default function Home() {
       return
     }
 
-    const result = await createGame(hostName.trim(), maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds)
+    const result = await createGame(hostName.trim(), maxRounds, selectedCategories, newPromptPercentage, roundDurationSeconds, categoryWeights)
     if (result.success) {
       if (typeof window !== 'undefined') {
         window.location.href = `/game/${result.roomId}?playerId=${result.playerId}`
@@ -177,6 +194,94 @@ export default function Home() {
                     ))}
                 </div>
               </div>
+
+              {selectedCategories.length > 0 && (
+                <div>
+                  <label className="label">
+                    Category Weights (total 100%)
+                  </label>
+                  <div className="flex items-center justify-between text-sm text-slate-700 mb-2">
+                    <span>Total</span>
+                    <span className={`${(selectedCategories.reduce((s, k) => s + (categoryWeights[k] || 0), 0) === 100) ? 'text-emerald-700 font-semibold' : 'text-amber-700 font-semibold'}`}>
+                      {selectedCategories.reduce((s, k) => s + (categoryWeights[k] || 0), 0)}%
+                    </span>
+                  </div>
+                  <div className="space-y-4">
+                    {selectedCategories
+                      .filter((key) => showInappropriate || key !== 'inappropriate')
+                      .map((cat) => {
+                        const current = categoryWeights[cat] || 0
+                        return (
+                          <div key={cat}>
+                            <div className="flex justify-between text-sm">
+                              <span className="font-medium">{PROMPT_CATEGORIES[cat].name}</span>
+                              <span className="text-slate-600">{current}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={current}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value)
+                                setCategoryWeights(prev => ({
+                                  ...prev,
+                                  [cat]: isNaN(val) ? 0 : val
+                                }))
+                              }}
+                              className="w-full"
+                            />
+                            <div className="text-xs text-slate-500">
+                              {getPromptCountForCategory(cat)} prompts available
+                            </div>
+                          </div>
+                        )
+                      })}
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        className="btn-muted px-3 py-1 text-sm"
+                        onClick={() => {
+                          // Reset equal split
+                          const equal = Math.floor(100 / selectedCategories.length)
+                          const next: Record<PromptCategoryKey, number> = {} as any
+                          for (const cat of selectedCategories) next[cat] = equal
+                          const rem = 100 - equal * selectedCategories.length
+                          if (rem > 0) next[selectedCategories[0]] += rem
+                          setCategoryWeights(next)
+                        }}
+                      >
+                        Reset equal
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-primary px-3 py-1 text-sm"
+                        onClick={() => {
+                          // Normalize to exactly 100 using largest remainder
+                          const entries = selectedCategories.map(cat => [cat, categoryWeights[cat] || 0] as const)
+                          const sum = entries.reduce((s, [, v]) => s + v, 0)
+                          if (sum <= 0) return
+                          const exacts = entries.map(([cat, v]) => [cat, (v / sum) * 100] as const)
+                          const floors = exacts.map(([cat, ex]) => [cat, Math.floor(ex)] as const)
+                          let total = floors.reduce((s, [, f]) => s + f, 0)
+                          const remainders = exacts.map(([cat, ex], i) => ({ cat, rem: ex - floors[i][1] }))
+                          remainders.sort((a, b) => b.rem - a.rem)
+                          const next: Record<PromptCategoryKey, number> = {} as any
+                          for (const [cat, f] of floors) next[cat] = f
+                          let add = 100 - total
+                          for (let i = 0; i < add; i++) {
+                            next[remainders[i % remainders.length].cat] += 1
+                          }
+                          setCategoryWeights(next)
+                        }}
+                      >
+                        Normalize to 100%
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="newPromptPercentage" className="label">

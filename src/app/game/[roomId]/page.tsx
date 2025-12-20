@@ -70,6 +70,19 @@ export default function GameRoom({ params }: { params: { roomId: string } }) {
       gameState.currentRound === 1 &&
       gameState.rounds.length > 0
     ) {
+      try {
+        // Debug: log final prompt pool to browser console on game start
+        // Includes counts and full list
+        // Note: This runs client-side for easier inspection
+        // eslint-disable-next-line no-console
+        console.log('🧰 Final prompt pool (client)', {
+          total: gameState.ideas?.length ?? 0,
+          categories: gameState.selectedCategories,
+          weights: (gameState as any).categoryWeights,
+        })
+        // eslint-disable-next-line no-console
+        console.log('🧰 Final prompt pool list (client):', gameState.ideas)
+      } catch (_e) {}
       setShowFirstRoundTransition(true)
       hasShownFirstTransitionRef.current = true
     }

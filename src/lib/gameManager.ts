@@ -200,7 +200,8 @@ export async function createGameRoom(
   maxRounds: number = 5,
   selectedCategories: PromptCategoryKey[] = ['kidFriendly'],
   newPromptPercentage: number = 0,
-  roundDurationSeconds: number = 60
+  roundDurationSeconds: number = 60,
+  categoryWeights?: Record<PromptCategoryKey, number>
 ): Promise<GameRoom> {
   const roomId = uuidv4()
   const games = await loadGames()
@@ -240,6 +241,7 @@ export async function createGameRoom(
     ideas,
     usedIdeas: [],
     selectedCategories,
+    categoryWeights,
     newPromptPercentage,
     requiredPromptsPerPlayer: 0,
     playerPrompts: {},
@@ -335,8 +337,99 @@ export async function startGame(roomId: string): Promise<boolean> {
     }
 
     console.log('▶️ Starting game in playing state immediately')
+    // Build existing prompt pool based on weights (no new prompts path)
+    const existingPromptsNeeded = distribution.existingPromptsNeeded
+    let existingPrompts: string[] = []
+    if (existingPromptsNeeded > 0) {
+      const selectedCats = room.selectedCategories
+      const pools: Record<string, string[]> = {}
+      for (const cat of selectedCats) {
+        // Per-category pool (no union)
+        pools[cat] = getPromptsByTags([cat])
+      }
+      // Determine weights (fallback to even if missing/invalid)
+      let weights: Record<string, number> = {}
+      if (room.categoryWeights) {
+        let sum = 0
+        for (const cat of selectedCats) {
+          const v = room.categoryWeights[cat] ?? 0
+          weights[cat] = v
+          sum += v
+        }
+        if (sum <= 0) {
+          const even = Math.floor(100 / selectedCats.length)
+          for (const cat of selectedCats) weights[cat] = even
+          const rem = 100 - even * selectedCats.length
+          if (rem > 0) weights[selectedCats[0]] += rem
+        }
+      } else {
+        const even = Math.floor(100 / selectedCats.length)
+        for (const cat of selectedCats) weights[cat] = even
+        const rem = 100 - even * selectedCats.length
+        if (rem > 0) weights[selectedCats[0]] += rem
+      }
+      // Quotas via largest remainder
+      const target = existingPromptsNeeded
+      const rawCounts: Record<string, number> = {}
+      const remainders: Array<{ cat: string; remainder: number }> = []
+      let floorSum = 0
+      for (const cat of selectedCats) {
+        const exact = (weights[cat] / 100) * target
+        const floorVal = Math.floor(exact)
+        rawCounts[cat] = floorVal
+        floorSum += floorVal
+        remainders.push({ cat, remainder: exact - floorVal })
+      }
+      let remaining = target - floorSum
+      remainders.sort((a, b) => b.remainder - a.remainder)
+      for (let i = 0; i < remaining; i++) {
+        rawCounts[remainders[i % remainders.length].cat] += 1
+      }
+      // Draw per category without duplicates
+      const chosen = new Set<string>()
+      const pickFrom = (arr: string[], count: number) => {
+        const pool = [...arr]
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          const t = pool[i]
+          pool[i] = pool[j]
+          pool[j] = t
+        }
+        return pool.slice(0, count)
+      }
+      for (const cat of selectedCats) {
+        const pool = (pools[cat] || []).filter(p => !chosen.has(p))
+        const need = Math.max(0, rawCounts[cat] || 0)
+        const take = pickFrom(pool, need)
+        for (const p of take) chosen.add(p)
+      }
+      // If deficit, fill from remaining in selected categories, then from the union pool
+      let deficit = target - chosen.size
+      if (deficit > 0) {
+        const allRemaining: string[] = []
+        for (const cat of selectedCats) {
+          const pool = (pools[cat] || []).filter(p => !chosen.has(p))
+          allRemaining.push(...pool)
+        }
+        const uniqueRemaining = Array.from(new Set(allRemaining))
+        const take = uniqueRemaining.sort(() => Math.random() - 0.5).slice(0, deficit)
+        for (const p of take) chosen.add(p)
+      }
+      existingPrompts = Array.from(chosen).slice(0, target)
+    }
+    const finalPromptPool = existingPrompts
+    // Save trimmed pool and start
+    room.ideas = finalPromptPool
+    room.usedIdeas = []
     room.status = 'playing'
     room.currentRound = 1
+    // Debug log
+    console.log('🧰 Final prompt pool (no-new path)', {
+      total: finalPromptPool.length,
+      selectedCategories: room.selectedCategories,
+      categoryWeights: room.categoryWeights,
+    })
+    console.log('🧰 Final prompt pool list (no-new path):', finalPromptPool)
     // Create the first round synchronously inside the same lock to avoid serverless deferral issues
     createAndAppendRound(room)
     games.set(roomId, room)
@@ -431,13 +524,111 @@ export async function buildFinalPromptPoolAndStartGame(roomId: string): Promise<
 
       const existingPrompts: string[] = []
       if (distribution.existingPromptsNeeded > 0) {
-        // Get all prompts that match ANY of the selected categories (union/OR logic)
-        const categoryPrompts = getPromptsByTags(room.selectedCategories)
-        const shuffledCategoryPrompts = [...categoryPrompts].sort(() => Math.random() - 0.5)
-        existingPrompts.push(...shuffledCategoryPrompts.slice(0, distribution.existingPromptsNeeded))
+        // Build per-category pools
+        const selectedCats = room.selectedCategories
+        const pools: Record<string, string[]> = {}
+        for (const cat of selectedCats) {
+          // Get prompts for this specific category
+          pools[cat] = getPromptsByTags([cat])
+        }
+
+        // Determine weights: use room.categoryWeights if valid, else even split
+        let weights: Record<string, number> = {}
+        if (room.categoryWeights) {
+          let sum = 0
+          for (const cat of selectedCats) {
+            const v = room.categoryWeights[cat] ?? 0
+            weights[cat] = v
+            sum += v
+          }
+          if (sum <= 0) {
+            // fallback to even split
+            const even = Math.floor(100 / selectedCats.length)
+            for (const cat of selectedCats) weights[cat] = even
+            const rem = 100 - even * selectedCats.length
+            if (rem > 0) weights[selectedCats[0]] += rem
+          }
+        } else {
+          const even = Math.floor(100 / selectedCats.length)
+          for (const cat of selectedCats) weights[cat] = even
+          const rem = 100 - even * selectedCats.length
+          if (rem > 0) weights[selectedCats[0]] += rem
+        }
+
+        // Initial quotas by largest remainder method
+        const target = distribution.existingPromptsNeeded
+        const rawCounts: Record<string, number> = {}
+        const remainders: Array<{ cat: string; remainder: number }> = []
+        let floorSum = 0
+        for (const cat of selectedCats) {
+          const exact = (weights[cat] / 100) * target
+          const floorVal = Math.floor(exact)
+          rawCounts[cat] = floorVal
+          floorSum += floorVal
+          remainders.push({ cat, remainder: exact - floorVal })
+        }
+        // Distribute remaining slots to largest remainders
+        let remaining = target - floorSum
+        remainders.sort((a, b) => b.remainder - a.remainder)
+        for (let i = 0; i < remaining; i++) {
+          rawCounts[remainders[i % remainders.length].cat] += 1
+        }
+
+        // Draw without duplicates across categories
+        const chosen = new Set<string>()
+        for (const cat of selectedCats) {
+          const pool = [...(pools[cat] || [])].filter(p => !chosen.has(p))
+          // shuffle
+          for (let i = pool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            const t = pool[i]
+            pool[i] = pool[j]
+            pool[j] = t
+          }
+          const need = Math.max(0, rawCounts[cat] || 0)
+          for (let i = 0; i < need && i < pool.length; i++) {
+            chosen.add(pool[i])
+          }
+        }
+
+        // If deficit, pull from any remaining prompts across selected categories
+        let deficit = target - chosen.size
+        if (deficit > 0) {
+          const allRemaining: string[] = []
+          for (const cat of selectedCats) {
+            const pool = (pools[cat] || []).filter(p => !chosen.has(p))
+            allRemaining.push(...pool)
+          }
+          // de-dup across categories
+          const uniqueRemaining = Array.from(new Set(allRemaining))
+          // shuffle
+          for (let i = uniqueRemaining.length - 1; i > 0 && deficit > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            const t = uniqueRemaining[i]
+            uniqueRemaining[i] = uniqueRemaining[j]
+            uniqueRemaining[j] = t
+          }
+          for (const p of uniqueRemaining) {
+            if (deficit <= 0) break
+            if (!chosen.has(p)) {
+              chosen.add(p)
+              deficit--
+            }
+          }
+        }
+
+        existingPrompts.push(...Array.from(chosen).slice(0, target))
       }
 
     const finalPromptPool = [...newPrompts, ...existingPrompts]
+    console.log('🧰 Final prompt pool built', {
+      total: finalPromptPool.length,
+      newPromptsCount: newPrompts.length,
+      existingPromptsCount: existingPrompts.length,
+      selectedCategories: room.selectedCategories,
+      categoryWeights: room.categoryWeights,
+    })
+    console.log('🧰 Final prompt pool (full list):', finalPromptPool)
 
     room.ideas = finalPromptPool
     room.usedIdeas = []
@@ -469,17 +660,119 @@ export async function startNewRound(roomId: string): Promise<GameRound | null> {
 
     console.log('Current player:', currentPlayer, 'playerIds:', playerIds)
 
-    const availableIdeas = room.ideas.filter(idea => !room.usedIdeas.includes(idea))
-    console.log('Available ideas:', availableIdeas.length, 'Used ideas:', room.usedIdeas.length)
+    const usedSet = new Set(room.usedIdeas)
+    const allAvailable = room.ideas.filter(idea => !usedSet.has(idea))
+    console.log('Available ideas:', allAvailable.length, 'Used ideas:', room.usedIdeas.length)
 
-    if (availableIdeas.length < 4) {
+    if (allAvailable.length < 4) {
       console.log('Not enough unused ideas, resetting used ideas list')
       room.usedIdeas = []
     }
 
-    const ideasToUse = availableIdeas.length >= 4 ? availableIdeas : room.ideas
-    const shuffled = [...ideasToUse].sort(() => Math.random() - 0.5)
-    const selectedIdeas = shuffled.slice(0, 4)
+    let selectedIdeas: string[] = []
+    const selectedCats = room.selectedCategories
+    if (selectedCats.length > 0) {
+      // Build category membership sets
+      const byCat: Record<string, Set<string>> = {}
+      const unionSet = new Set<string>()
+      for (const cat of selectedCats) {
+        const set = new Set(getPromptsByTags([cat]))
+        byCat[cat] = set
+        for (const p of set) unionSet.add(p)
+      }
+      const availableByCat: Record<string, string[]> = {}
+      for (const cat of selectedCats) {
+        availableByCat[cat] = allAvailable.filter(p => byCat[cat].has(p))
+      }
+      const leftoverPool = allAvailable.filter(p => !unionSet.has(p))
+
+      // Determine weights
+      let weights: Record<string, number> = {}
+      if (room.categoryWeights) {
+        let sum = 0
+        for (const cat of selectedCats) {
+          const v = room.categoryWeights[cat] ?? 0
+          weights[cat] = v
+          sum += v
+        }
+        if (sum <= 0) {
+          const even = Math.floor(100 / selectedCats.length)
+          for (const cat of selectedCats) weights[cat] = even
+          const rem = 100 - even * selectedCats.length
+          if (rem > 0) weights[selectedCats[0]] += rem
+        }
+      } else {
+        const even = Math.floor(100 / selectedCats.length)
+        for (const cat of selectedCats) weights[cat] = even
+        const rem = 100 - even * selectedCats.length
+        if (rem > 0) weights[selectedCats[0]] += rem
+      }
+
+      // Per-round quotas sum to 4 via largest remainder
+      const targetPerRound: Record<string, number> = {}
+      let baseSum = 0
+      const remainders: Array<{ cat: string; rem: number }> = []
+      for (const cat of selectedCats) {
+        const exact = (weights[cat] / 100) * 4
+        const base = Math.floor(exact)
+        targetPerRound[cat] = base
+        baseSum += base
+        remainders.push({ cat, rem: exact - base })
+      }
+      let add = 4 - baseSum
+      remainders.sort((a, b) => b.rem - a.rem)
+      for (let i = 0; i < add; i++) {
+        targetPerRound[remainders[i % remainders.length].cat] += 1
+      }
+
+      const pickFrom = (arr: string[], count: number) => {
+        const pool = [...arr]
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          const t = pool[i]
+          pool[i] = pool[j]
+          pool[j] = t
+        }
+        return pool.slice(0, count)
+      }
+
+      // Pick per category up to quota
+      for (const cat of selectedCats) {
+        const want = targetPerRound[cat] || 0
+        if (want <= 0) continue
+        const avail = availableByCat[cat] || []
+        const take = Math.min(want, avail.length)
+        if (take > 0) {
+          const chosen = pickFrom(avail, take)
+          selectedIdeas.push(...chosen)
+        }
+      }
+
+      // Fill remaining slots from other categories, then leftovers
+      let deficit = 4 - selectedIdeas.length
+      if (deficit > 0) {
+        const remainingCats: string[] = []
+        for (const cat of selectedCats) {
+          const rem = (availableByCat[cat] || []).filter(p => !selectedIdeas.includes(p))
+          remainingCats.push(...rem)
+        }
+        const dedupCats = Array.from(new Set(remainingCats))
+        selectedIdeas.push(...pickFrom(dedupCats, deficit))
+      }
+      deficit = 4 - selectedIdeas.length
+      if (deficit > 0) {
+        selectedIdeas.push(...pickFrom(leftoverPool, deficit))
+      }
+      if (selectedIdeas.length < 4) {
+        const fallback = allAvailable.filter(p => !selectedIdeas.includes(p))
+        selectedIdeas.push(...pickFrom(fallback, 4 - selectedIdeas.length))
+      }
+    } else {
+      // Fallback random
+      const pool = room.ideas.filter(idea => !room.usedIdeas.includes(idea))
+      const shuffled = [...pool].sort(() => Math.random() - 0.5)
+      selectedIdeas = shuffled.slice(0, 4)
+    }
 
     room.usedIdeas.push(...selectedIdeas)
     console.log('Selected ideas:', selectedIdeas)

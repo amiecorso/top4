@@ -9,7 +9,8 @@ export async function POST(request: NextRequest) {
       maxRounds = 5,
       selectedCategories = ['kidFriendly'],
       newPromptPercentage = 0,
-      roundDurationSeconds = 60
+      roundDurationSeconds = 60,
+      categoryWeights
     } = await request.json()
 
     if (!hostName || typeof hostName !== 'string' || hostName.trim().length === 0) {
@@ -39,7 +40,42 @@ export async function POST(request: NextRequest) {
       ? newPromptPercentage
       : 0
 
-    const room = await createGameRoom(hostName.trim(), maxRounds, categoriesToUse, validPercentage, validDuration)
+    // Validate categoryWeights if provided
+    let weightsToUse: Record<PromptCategoryKey, number> | undefined
+    if (categoryWeights && typeof categoryWeights === 'object') {
+      const filtered: Record<PromptCategoryKey, number> = {} as any
+      let sum = 0
+      for (const key of Object.keys(categoryWeights)) {
+        if ((categoriesToUse as string[]).includes(key)) {
+          const v = Number(categoryWeights[key as PromptCategoryKey])
+          if (Number.isFinite(v) && v >= 0) {
+            filtered[key as PromptCategoryKey] = v
+            sum += v
+          }
+        }
+      }
+      if (Object.keys(filtered).length > 0 && sum > 0) {
+        // Normalize to 100
+        const norm: Record<PromptCategoryKey, number> = {} as any
+        for (const k of Object.keys(filtered)) {
+          norm[k as PromptCategoryKey] = Math.round((filtered[k as PromptCategoryKey] / sum) * 100)
+        }
+        // Fix rounding drift to exactly 100 by adjusting the largest remainder
+        const total = Object.values(norm).reduce((a, b) => a + b, 0)
+        if (total !== 100) {
+          const delta = 100 - total
+          // Assign delta to the category with the highest original weight
+          let target = Object.keys(filtered)[0] as PromptCategoryKey
+          for (const k of Object.keys(filtered) as PromptCategoryKey[]) {
+            if (filtered[k] > filtered[target]) target = k
+          }
+          norm[target] = (norm[target] || 0) + delta
+        }
+        weightsToUse = norm
+      }
+    }
+
+    const room = await createGameRoom(hostName.trim(), maxRounds, categoriesToUse, validPercentage, validDuration, weightsToUse)
     const hostId = Object.keys(room.players)[0]
 
     return NextResponse.json({

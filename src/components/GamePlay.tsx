@@ -154,6 +154,11 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
     currentRound?.roundStartTime
   ])
 
+  // Reset finishing state when round changes or reveal completes
+  useEffect(() => {
+    setFinishingRound(false)
+  }, [gameState.currentRound, isRevealed])
+
   // NOW we can do conditional returns after all hooks are called
   // Check for finished status first, before accessing currentRound
   // When the game is finished, keep users on the round scoring screen
@@ -290,6 +295,8 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
                                 if (refreshGameState) refreshGameState()
                               }, 400)
                             }
+                            // Reset finishing state after a successful finish
+                            setFinishingRound(false)
                           } else {
                             setFinishingRound(false)
                           }

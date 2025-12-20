@@ -32,6 +32,7 @@ export interface GameRoom {
   ideas: string[];
   usedIdeas: string[];
   selectedCategories: PromptCategoryKey[];
+  categoryWeights?: Record<PromptCategoryKey, number>; // Percentages (0–100) summing to 100 across selectedCategories
   newPromptPercentage: number;
   requiredPromptsPerPlayer: number;
   playerPrompts: Record<string, string[]>; // playerId -> submitted prompts
