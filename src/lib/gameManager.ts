@@ -678,7 +678,8 @@ export async function startNewRound(roomId: string): Promise<GameRound | null> {
       for (const cat of selectedCats) {
         const set = new Set(getPromptsByTags([cat]))
         byCat[cat] = set
-        for (const p of set) unionSet.add(p)
+        // Avoid for...of on Set to prevent downlevelIteration requirements
+        set.forEach((p) => unionSet.add(p))
       }
       const availableByCat: Record<string, string[]> = {}
       for (const cat of selectedCats) {
