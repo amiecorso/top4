@@ -10,6 +10,7 @@ export default function Home() {
   const [playerName, setPlayerName] = useState('')
   const [gameCode, setGameCode] = useState('')
   const [maxRounds, setMaxRounds] = useState(5)
+  const [maxRoundsText, setMaxRoundsText] = useState('5')
   const [selectedCategories, setSelectedCategories] = useState<PromptCategoryKey[]>(['kidFriendly'])
   const [categoryWeights, setCategoryWeights] = useState<Record<PromptCategoryKey, number>>({ kidFriendly: 100 } as Record<PromptCategoryKey, number>)
   const [newPromptPercentage, setNewPromptPercentage] = useState(50)
@@ -115,6 +116,12 @@ export default function Home() {
     }
   }
 
+  const stepRounds = (delta: number) => {
+    const next = Math.max(1, Math.min(30, maxRounds + delta))
+    setMaxRounds(next)
+    setMaxRoundsText(String(next))
+  }
+
   const toggleCategory = (categoryKey: PromptCategoryKey) => {
     setSelectedCategories(prev =>
       prev.includes(categoryKey)
@@ -192,16 +199,48 @@ export default function Home() {
                 <label htmlFor="maxRounds" className="label">
                   Number of Rounds
                 </label>
-                <input
-                  id="maxRounds"
-                  type="number"
-                  value={maxRounds}
-                  onChange={(e) => setMaxRounds(parseInt(e.target.value) || 5)}
-                  min="1"
-                  max="30"
-                  className="input"
-                  placeholder="Enter number of rounds (1-30)"
-                />
+                <div className="flex items-stretch gap-2">
+                  <button
+                    type="button"
+                    onClick={() => stepRounds(-1)}
+                    disabled={maxRounds <= 1}
+                    aria-label="Decrease rounds"
+                    className="btn-muted px-5 text-2xl leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    −
+                  </button>
+                  <input
+                    id="maxRounds"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={maxRoundsText}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9]/g, '')
+                      setMaxRoundsText(raw)
+                      const n = parseInt(raw, 10)
+                      if (!isNaN(n) && n >= 1 && n <= 30) setMaxRounds(n)
+                    }}
+                    onBlur={() => {
+                      const n = parseInt(maxRoundsText, 10)
+                      const clamped = isNaN(n) ? maxRounds : Math.max(1, Math.min(30, n))
+                      setMaxRounds(clamped)
+                      setMaxRoundsText(String(clamped))
+                    }}
+                    aria-label="Number of rounds"
+                    className="input flex-1 text-center text-lg font-semibold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => stepRounds(1)}
+                    disabled={maxRounds >= 30}
+                    aria-label="Increase rounds"
+                    className="btn-muted px-5 text-2xl leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Tap − or + to adjust (1–30), or type a number.</p>
               </div>
 
               <div>
