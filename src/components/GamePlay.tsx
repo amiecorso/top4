@@ -276,41 +276,6 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
                     </span>
                   </div>
                 )}
-                {currentPlayer.id === gameState.host && !isRevealed && (
-                  <div className="mt-4">
-                    <button
-                      onClick={async () => {
-                        if (finishingRound) return
-                        setFinishingRound(true)
-                        try {
-                          const response = await fetch(`/api/game/${roomId}/force-finish-round`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ playerId: currentPlayer.id }),
-                          })
-                          if (response.ok) {
-                            if (refreshGameState) {
-                              refreshGameState()
-                              setTimeout(() => {
-                                if (refreshGameState) refreshGameState()
-                              }, 400)
-                            }
-                            // Reset finishing state after a successful finish
-                            setFinishingRound(false)
-                          } else {
-                            setFinishingRound(false)
-                          }
-                        } catch {
-                          setFinishingRound(false)
-                        }
-                      }}
-                      className="btn-primary disabled:bg-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
-                      disabled={finishingRound}
-                    >
-                      {finishingRound ? 'Finishing…' : 'Finish Round Now'}
-                    </button>
-                  </div>
-                )}
               </div>
             ) : null}
 
@@ -391,6 +356,43 @@ export function GamePlay({ gameState, currentPlayer, roomId, refreshGameState }:
                       Round {gameState.currentRound} of {gameState.maxRounds}
                     </p>
                   </div>
+                  {hasCommitted && (
+                    <div className="border-t border-amber-300 pt-3 mt-3">
+                      <button
+                        onClick={async () => {
+                          if (finishingRound) return
+                          const confirmed = window.confirm(
+                            'Finish the round now for everyone? Players who haven’t submitted will be scored as no guess. This cannot be undone.'
+                          )
+                          if (!confirmed) return
+                          setFinishingRound(true)
+                          try {
+                            const response = await fetch(`/api/game/${roomId}/force-finish-round`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ playerId: currentPlayer.id }),
+                            })
+                            if (response.ok && refreshGameState) {
+                              refreshGameState()
+                              setTimeout(() => {
+                                if (refreshGameState) refreshGameState()
+                              }, 400)
+                            }
+                            setFinishingRound(false)
+                          } catch {
+                            setFinishingRound(false)
+                          }
+                        }}
+                        className="btn-danger w-full disabled:opacity-60 disabled:cursor-not-allowed"
+                        disabled={finishingRound}
+                      >
+                        {finishingRound ? 'Finishing…' : 'Finish Round Now'}
+                      </button>
+                      <p className="text-xs text-red-700 mt-2 text-center">
+                        Ends the round immediately for all players.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -144,6 +144,38 @@ export default function Home() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+          {/* Join Game */}
+          <form onSubmit={handleJoinGame} noValidate className="card">
+            <h2 className="section-title">Join Existing Game</h2>
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value.toUpperCase())}
+                placeholder="Enter your name"
+                className="input"
+                required
+              />
+              <input
+                type="text"
+                value={gameCode}
+                onChange={(e) => setGameCode(e.target.value.toUpperCase())}
+                placeholder="Enter game code (e.g. ABCD)"
+                className="input"
+                maxLength={4}
+                required
+              />
+              <button
+                type="button"
+                onClick={handleJoinGame}
+                disabled={loading}
+                className="w-full btn-success disabled:bg-slate-300"
+              >
+                {loading ? 'Joining...' : 'Join Game'}
+              </button>
+            </div>
+          </form>
+
           {/* Create Game */}
           <form onSubmit={handleCreateGame} noValidate className="card">
             <h2 className="section-title">Create New Game</h2>
@@ -330,38 +362,6 @@ export default function Home() {
                 className="w-full btn-primary disabled:bg-slate-300"
               >
                 {loading ? 'Creating...' : 'Create Game'}
-              </button>
-            </div>
-          </form>
-
-          {/* Join Game */}
-          <form onSubmit={handleJoinGame} noValidate className="card">
-            <h2 className="section-title">Join Existing Game</h2>
-            <div className="space-y-4">
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value.toUpperCase())}
-                placeholder="Enter your name"
-                className="input"
-                required
-              />
-              <input
-                type="text"
-                value={gameCode}
-                onChange={(e) => setGameCode(e.target.value.toUpperCase())}
-                placeholder="Enter game code (e.g. ABCD)"
-                className="input"
-                maxLength={4}
-                required
-              />
-              <button
-                type="button"
-                onClick={handleJoinGame}
-                disabled={loading}
-                className="w-full btn-success disabled:bg-slate-300"
-              >
-                {loading ? 'Joining...' : 'Join Game'}
               </button>
             </div>
           </form>

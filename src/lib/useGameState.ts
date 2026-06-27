@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GameRoom } from '@/types/game'
 
 export function useGameState(roomId: string | null, playerId: string | null) {
   const [gameState, setGameState] = useState<GameRoom | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Count consecutive 404s so a freshly created game that briefly 404s due to
+  // datastore replica lag doesn't flash "Game not found" before it loads.
+  const notFoundCountRef = useRef(0)
 
   const fetchGameState = async () => {
     if (!roomId) return
@@ -14,8 +17,17 @@ export function useGameState(roomId: string | null, playerId: string | null) {
       const data = await response.json()
 
       if (response.ok) {
+        notFoundCountRef.current = 0
         setGameState(data.room)
         setError(null)
+      } else if (response.status === 404) {
+        // Tolerate a couple of transient 404s right after creation (replica
+        // lag). Polling is every 2s, so this surfaces a real "not found"
+        // after ~4s while hiding the brief race on redirect.
+        notFoundCountRef.current += 1
+        if (notFoundCountRef.current >= 3) {
+          setError(data.error || 'Game not found')
+        }
       } else {
         setError(data.error || 'Failed to fetch game state')
       }

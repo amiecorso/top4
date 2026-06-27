@@ -41,8 +41,13 @@ async function loadGames(): Promise<Map<string, GameRoom>> {
         }
       }
       return map
-    } catch (_e) {
-      // Fallback to file if KV fails
+    } catch (e) {
+      // KV is configured but failing. Do NOT silently fall back to the
+      // per-instance file store — on serverless that store isn't shared
+      // across invocations, so failures would look like games vanishing
+      // right after creation. Fail loud so the API returns a real 500.
+      console.error('KV loadGames failed:', e)
+      throw new Error('Datastore unavailable (KV read failed)')
     }
   }
   try {
@@ -68,8 +73,11 @@ async function saveGames(games: Map<string, GameRoom>) {
       }
       return
     } catch (error) {
+      // KV is configured but failing. Fail loud instead of writing to the
+      // ephemeral per-instance file store (which would be silently lost on
+      // the next serverless invocation).
       console.error('Failed to save games to KV:', error)
-      // Fall through to file
+      throw new Error('Datastore unavailable (KV write failed)')
     }
   }
   try {
