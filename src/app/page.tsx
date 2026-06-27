@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useGameState } from '@/lib/useGameState'
 import { PROMPT_CATEGORIES, PromptCategoryKey, getPromptCountForCategory } from '@/types/game'
 
@@ -17,6 +18,7 @@ export default function Home() {
   const [roundDurationSeconds, setRoundDurationSeconds] = useState<number>(60) // 0 = no timer
   const [error, setError] = useState('')
   const [showInappropriate, setShowInappropriate] = useState(false)
+  const [showCoinbase, setShowCoinbase] = useState(false)
   const [titleClickCount, setTitleClickCount] = useState(0)
   const router = useRouter()
   const { createGame, joinGame, loading } = useGameState(null, null)
@@ -38,6 +40,16 @@ export default function Home() {
     const stored = localStorage.getItem('showInappropriate')
     if (stored === 'true') {
       setShowInappropriate(true)
+    }
+
+    // Coinbase (work) category is hidden by default; unlock via URL param or localStorage
+    const showCoinbaseParam = params.get('showCoinbase')
+    if (showCoinbaseParam === 'true') {
+      setShowCoinbase(true)
+      localStorage.setItem('showCoinbase', 'true')
+    }
+    if (localStorage.getItem('showCoinbase') === 'true') {
+      setShowCoinbase(true)
     }
   }, [])
 
@@ -140,9 +152,17 @@ export default function Home() {
         >
           Top Four
         </h1>
-        <p className="text-slate-600 text-lg mb-10">
+        <p className="text-slate-600 text-lg mb-4">
           A fun party game where you rank ideas and try to predict others' rankings!
         </p>
+        <div className="mb-10">
+          <Link
+            href="/prompts"
+            className="inline-block text-blue-600 hover:text-blue-700 font-medium underline underline-offset-4"
+          >
+            📚 Browse all prompts
+          </Link>
+        </div>
 
         {error && (
           <div className="card bg-red-50 border-red-200 text-red-700 mb-6">
@@ -249,7 +269,7 @@ export default function Home() {
                 </label>
                 <div className="space-y-2">
                   {Object.entries(PROMPT_CATEGORIES)
-                    .filter(([key]) => showInappropriate || key !== 'inappropriate')
+                    .filter(([key]) => (showInappropriate || key !== 'inappropriate') && (showCoinbase || key !== 'baseAccount'))
                     .map(([key, category]) => (
                       <label key={key} className="flex items-center">
                         <input
@@ -279,7 +299,7 @@ export default function Home() {
                   </div>
                   <div className="space-y-4">
                     {selectedCategories
-                      .filter((key) => showInappropriate || key !== 'inappropriate')
+                      .filter((key) => (showInappropriate || key !== 'inappropriate') && (showCoinbase || key !== 'baseAccount'))
                       .map((cat) => {
                         const current = categoryWeights[cat] || 0
                         return (
